@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 public class GroupServiceImpl implements GroupService {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  private final ReentrantLock groupFileLock = new ReentrantLock();
 
   @Value("${spring.netty.server.basePath}")
   private String basePath;
@@ -30,7 +33,7 @@ public class GroupServiceImpl implements GroupService {
     return new File(dir, "groups.json");
   }
 
-  private synchronized List<Group> readGroups() {
+  private List<Group> readGroups() {
     File file = groupsFile();
     if (!file.exists()) return new ArrayList<>();
     try {
@@ -40,7 +43,7 @@ public class GroupServiceImpl implements GroupService {
     }
   }
 
-  private synchronized void writeGroups(List<Group> groups) {
+  private void writeGroups(List<Group> groups) {
     File file = groupsFile();
     try {
       MAPPER.writerWithDefaultPrettyPrinter().writeValue(file, groups);
@@ -90,157 +93,218 @@ public class GroupServiceImpl implements GroupService {
 
   @Override
   public Group createGroup(String email, String name) {
-    List<Group> groups = readGroups();
-    Group group =
-        Group.builder()
-            .id(UUID.randomUUID().toString())
-            .name(name)
-            .ownerEmail(email)
-            .admins(new ArrayList<>())
-            .members(new ArrayList<>())
-            .scopes(new ArrayList<>())
-            .build();
-    groups.add(group);
-    writeGroups(groups);
-    return group;
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group =
+          Group.builder()
+              .id(UUID.randomUUID().toString())
+              .name(name)
+              .ownerEmail(email)
+              .admins(new ArrayList<>())
+              .members(new ArrayList<>())
+              .scopes(new ArrayList<>())
+              .build();
+      groups.add(group);
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
+    }
   }
 
   @Override
   public Group addMember(String email, String groupId, String memberEmail) {
-    List<Group> groups = readGroups();
-    Group group = findManageable(groups, email, groupId);
-    String normalizedEmail = normalizeExistingUserEmail(memberEmail);
-    if (!group.getMembers().contains(normalizedEmail)
-        && !group.getAdmins().contains(normalizedEmail)
-        && !group.getOwnerEmail().equals(normalizedEmail)) {
-      group.getMembers().add(normalizedEmail);
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findManageable(groups, email, groupId);
+      String normalizedEmail = normalizeExistingUserEmail(memberEmail);
+      if (!group.getMembers().contains(normalizedEmail)
+          && !group.getAdmins().contains(normalizedEmail)
+          && !group.getOwnerEmail().equals(normalizedEmail)) {
+        group.getMembers().add(normalizedEmail);
+      }
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
     }
-    writeGroups(groups);
-    return group;
   }
 
   @Override
   public Group addMembers(String email, String groupId, List<String> memberEmails) {
-    List<Group> groups = readGroups();
-    Group group = findManageable(groups, email, groupId);
     if (memberEmails == null || memberEmails.isEmpty()) {
       throw new BaseException("Member emails are required", 400);
     }
-    List<String> normalizedEmails =
-        memberEmails.stream().map(this::normalizeExistingUserEmail).collect(Collectors.toList());
-    for (String trimmed : normalizedEmails) {
-      if (!group.getMembers().contains(trimmed)
-          && !group.getAdmins().contains(trimmed)
-          && !group.getOwnerEmail().equals(trimmed)) {
-        group.getMembers().add(trimmed);
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findManageable(groups, email, groupId);
+      List<String> normalizedEmails =
+          memberEmails.stream().map(this::normalizeExistingUserEmail).collect(Collectors.toList());
+      for (String trimmed : normalizedEmails) {
+        if (!group.getMembers().contains(trimmed)
+            && !group.getAdmins().contains(trimmed)
+            && !group.getOwnerEmail().equals(trimmed)) {
+          group.getMembers().add(trimmed);
+        }
       }
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
     }
-    writeGroups(groups);
-    return group;
   }
 
   @Override
   public Group removeMember(String email, String groupId, String memberEmail) {
-    List<Group> groups = readGroups();
-    Group group = findManageable(groups, email, groupId);
-    if (group.getAdmins().contains(memberEmail) && !isOwner(group, email)) {
-      throw new BaseException("Permission denied: only owner can remove admins", 403);
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findManageable(groups, email, groupId);
+      if (group.getAdmins().contains(memberEmail) && !isOwner(group, email)) {
+        throw new BaseException("Permission denied: only owner can remove admins", 403);
+      }
+      group.getMembers().remove(memberEmail);
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
     }
-    group.getMembers().remove(memberEmail);
-    writeGroups(groups);
-    return group;
   }
 
   @Override
   public Group removeMembers(String email, String groupId, List<String> memberEmails) {
-    List<Group> groups = readGroups();
-    Group group = findManageable(groups, email, groupId);
-    for (String m : memberEmails) {
-      String trimmed = m.trim();
-      if (group.getAdmins().contains(trimmed) && !isOwner(group, email)) continue;
-      group.getMembers().remove(trimmed);
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findManageable(groups, email, groupId);
+      for (String m : memberEmails) {
+        String trimmed = m.trim();
+        if (group.getAdmins().contains(trimmed) && !isOwner(group, email)) continue;
+        group.getMembers().remove(trimmed);
+      }
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
     }
-    writeGroups(groups);
-    return group;
   }
 
   @Override
   public Group addAdmin(String ownerEmail, String groupId, String adminEmail) {
-    List<Group> groups = readGroups();
-    Group group = findOwned(groups, ownerEmail, groupId);
-    String normalizedEmail = normalizeExistingUserEmail(adminEmail);
-    if (!group.getAdmins().contains(normalizedEmail)
-        && !group.getOwnerEmail().equals(normalizedEmail)) {
-      group.getAdmins().add(normalizedEmail);
-      group.getMembers().remove(normalizedEmail);
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findOwned(groups, ownerEmail, groupId);
+      String normalizedEmail = normalizeExistingUserEmail(adminEmail);
+      if (!group.getAdmins().contains(normalizedEmail)
+          && !group.getOwnerEmail().equals(normalizedEmail)) {
+        group.getAdmins().add(normalizedEmail);
+        group.getMembers().remove(normalizedEmail);
+      }
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
     }
-    writeGroups(groups);
-    return group;
   }
 
   @Override
   public Group removeAdmin(String ownerEmail, String groupId, String adminEmail) {
-    List<Group> groups = readGroups();
-    Group group = findOwned(groups, ownerEmail, groupId);
-    String targetEmail = adminEmail == null ? "" : adminEmail.trim();
-    if (targetEmail.isEmpty()) {
-      throw new BaseException("Admin email is required", 400);
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findOwned(groups, ownerEmail, groupId);
+      String targetEmail = adminEmail == null ? "" : adminEmail.trim();
+      if (targetEmail.isEmpty()) {
+        throw new BaseException("Admin email is required", 400);
+      }
+      if (isOwner(group, targetEmail)) {
+        throw new BaseException("Owner cannot be changed", 409);
+      }
+      boolean removed = group.getAdmins().remove(targetEmail);
+      if (removed && !group.getMembers().contains(targetEmail)) {
+        group.getMembers().add(targetEmail);
+      }
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
     }
-    if (isOwner(group, targetEmail)) {
-      throw new BaseException("Owner cannot be changed", 409);
-    }
-    boolean removed = group.getAdmins().remove(targetEmail);
-    if (removed && !group.getMembers().contains(targetEmail)) {
-      group.getMembers().add(targetEmail);
-    }
-    writeGroups(groups);
-    return group;
   }
 
   @Override
   public Group addScope(String email, String groupId, String scopeName) {
-    List<Group> groups = readGroups();
-    Group group = findManageable(groups, email, groupId);
-    if (!group.getScopes().contains(scopeName)) {
-      group.getScopes().add(scopeName);
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findManageable(groups, email, groupId);
+      if (!group.getScopes().contains(scopeName)) {
+        group.getScopes().add(scopeName);
+      }
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
     }
-    writeGroups(groups);
-    return group;
   }
 
   @Override
   public Group removeScope(String email, String groupId, String scopeName) {
-    List<Group> groups = readGroups();
-    Group group = findManageable(groups, email, groupId);
-    group.getScopes().remove(scopeName);
-    writeGroups(groups);
-    return group;
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findManageable(groups, email, groupId);
+      group.getScopes().remove(scopeName);
+      writeGroups(groups);
+      return group;
+    } finally {
+      groupFileLock.unlock();
+    }
   }
 
   @Override
   public boolean deleteGroup(String email, String groupId) {
-    List<Group> groups = readGroups();
-    Group group = findOwned(groups, email, groupId);
-    boolean removed = groups.remove(group);
-    if (!removed) throw new BaseException("Group not found", 404);
-    writeGroups(groups);
-    return true;
+    groupFileLock.lock();
+    try {
+      List<Group> groups = readGroups();
+      Group group = findOwned(groups, email, groupId);
+      boolean removed = groups.remove(group);
+      if (!removed) throw new BaseException("Group not found", 404);
+      writeGroups(groups);
+      return true;
+    } finally {
+      groupFileLock.unlock();
+    }
   }
 
   @Override
   public List<Group> listGroups(String email) {
-    return readGroups().stream()
-        .filter(
-            g ->
-                g.getOwnerEmail().equals(email)
-                    || g.getAdmins().contains(email)
-                    || g.getMembers().contains(email))
-        .collect(Collectors.toList());
+    groupFileLock.lock();
+    try {
+      return readGroups().stream()
+          .filter(
+              g ->
+                  g.getOwnerEmail().equals(email)
+                      || g.getAdmins().contains(email)
+                      || g.getMembers().contains(email))
+          .collect(Collectors.toList());
+    } finally {
+      groupFileLock.unlock();
+    }
   }
 
   @Override
   public List<GroupInfo> getGroupFiles(String email) {
-    List<Group> groups = readGroups();
+    groupFileLock.lock();
+    List<Group> groups;
+    try {
+      groups = readGroups();
+    } finally {
+      groupFileLock.unlock();
+    }
     return groups.stream()
         .filter(
             g ->
@@ -273,7 +337,12 @@ public class GroupServiceImpl implements GroupService {
 
   @Override
   public boolean isScopeDeletable(String scopeName) {
-    return readGroups().stream().noneMatch(g -> g.getScopes().contains(scopeName));
+    groupFileLock.lock();
+    try {
+      return readGroups().stream().noneMatch(g -> g.getScopes().contains(scopeName));
+    } finally {
+      groupFileLock.unlock();
+    }
   }
 
   private List<GroupFileNode> listScopeFiles(String scopeName) {

@@ -1,6 +1,7 @@
 package backend.model.entity;
 
 import java.util.Collection;
+import java.util.Collections;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -35,7 +36,7 @@ public class User implements UserDetails {
 
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
-    return null;
+    return Collections.emptyList();
   }
 
   @Override

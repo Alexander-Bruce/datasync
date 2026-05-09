@@ -114,12 +114,11 @@ public class SecurityConfig implements WebMvcConfigurer {
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
 
-    // 允许的前端地址，显式写出来，不要只用 *
+    // 允许的前端地址
     configuration.setAllowedOrigins(
-        Arrays.asList("http://localhost:5173", "http://127.0.0.1:5173"));
-
-    // 也就是这一行：允许所有来源（备用方案）
-    configuration.addAllowedOriginPattern("*");
+        Arrays.asList(
+            "http://localhost:5173", "http://127.0.0.1:5173",
+            "http://localhost:8092", "http://127.0.0.1:8092"));
 
     configuration.setAllowedMethods(
         Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));

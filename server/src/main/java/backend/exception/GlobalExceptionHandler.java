@@ -84,7 +84,8 @@ public class GlobalExceptionHandler {
   @ExceptionHandler
   public ResponseEntity<ResultEntity<Object>> handleRuntimeException(RuntimeException ex) {
     return ResultEntity.error(
-        HttpStatus.INTERNAL_SERVER_ERROR.value(), "No handler found for " + ex.getMessage());
+        HttpStatus.INTERNAL_SERVER_ERROR.value(),
+        ex.getMessage() != null ? ex.getMessage() : "Internal server error");
   }
 
   @ExceptionHandler

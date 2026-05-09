@@ -155,10 +155,23 @@ public class FileServiceImpl implements FileService {
   /** 下行同步第一步：扫描 basePath/scopeName，返回所有文件的相对路径列表（不含内容）。 */
   @Override
   public List<String> listDownloadFiles(String scopeName) {
+    if (scopeName == null || scopeName.isBlank()) return new ArrayList<>();
+
     List<String> result = new ArrayList<>();
 
     File serverBase = new File(basePath);
     File scopeDir = new File(serverBase, scopeName);
+
+    try {
+      String canonicalBase = serverBase.getCanonicalPath();
+      String canonicalScope = scopeDir.getCanonicalPath();
+      if (!canonicalScope.startsWith(canonicalBase + File.separator)
+          && !canonicalScope.equals(canonicalBase)) {
+        throw new SecurityException("非法 scopeName: " + scopeName);
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("路径解析失败: " + e.getMessage(), e);
+    }
 
     if (!scopeDir.exists() || !scopeDir.isDirectory()) {
       logger.info("下行同步：范围目录不存在 " + scopeDir.getAbsolutePath());
@@ -172,8 +185,24 @@ public class FileServiceImpl implements FileService {
   /** 下行同步第二步：读取单个文件的原始字节，直接返回给客户端。 */
   @Override
   public byte[] downloadFile(String scopeName, String relativePath) {
+    if (scopeName == null || scopeName.isBlank()) throw new SecurityException("scopeName 不能为空");
+    if (relativePath == null || relativePath.isBlank())
+      throw new SecurityException("relativePath 不能为空");
+
     File serverBase = new File(basePath);
     File scopeDir = new File(serverBase, scopeName);
+
+    try {
+      String canonicalBase = serverBase.getCanonicalPath();
+      String canonicalScope = scopeDir.getCanonicalPath();
+      if (!canonicalScope.startsWith(canonicalBase + File.separator)
+          && !canonicalScope.equals(canonicalBase)) {
+        throw new SecurityException("非法 scopeName: " + scopeName);
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("路径解析失败: " + e.getMessage(), e);
+    }
+
     File target = new File(scopeDir, relativePath);
 
     // 安全校验：防止路径穿越

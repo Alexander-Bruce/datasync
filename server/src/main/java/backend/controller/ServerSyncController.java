@@ -1,5 +1,6 @@
 package backend.controller;
 
+import backend.exception.model.BaseException;
 import backend.service.FileService;
 import backend.util.ResultEntity;
 import backend.util.SyncStyle;
@@ -28,6 +29,9 @@ public class ServerSyncController {
 
     String email = (String) map.get("email");
     String path = (String) map.get("path");
+
+    if (email == null || email.isBlank()) throw new BaseException("email is required", 400);
+    if (path == null || path.isBlank()) throw new BaseException("path is required", 400);
     Object listObj = map.get("list");
     ObjectMapper objectMapper = new ObjectMapper();
 
@@ -50,6 +54,8 @@ public class ServerSyncController {
       @RequestBody Map<String, String> map) {
 
     String scopeName = map.get("scopeName");
+    if (scopeName == null || scopeName.isBlank())
+      throw new BaseException("scopeName is required", 400);
 
     return ResultEntity.success(
         200, "File list fetched successfully", fileService.listDownloadFiles(scopeName));
@@ -65,6 +71,11 @@ public class ServerSyncController {
 
     String scopeName = map.get("scopeName");
     String relativePath = map.get("relativePath");
+
+    if (scopeName == null || scopeName.isBlank())
+      throw new BaseException("scopeName is required", 400);
+    if (relativePath == null || relativePath.isBlank())
+      throw new BaseException("relativePath is required", 400);
 
     byte[] content = fileService.downloadFile(scopeName, relativePath);
 

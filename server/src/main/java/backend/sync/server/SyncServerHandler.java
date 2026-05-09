@@ -8,9 +8,18 @@ import dataSync.CDCManager;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 public class SyncServerHandler extends SimpleChannelInboundHandler<Object> {
+
+  private static final Set<String> ALLOWED_CDC_CLASSES =
+      Set.of(
+          "dataSync.FastCDC.FastCDCManager",
+          "dataSync.FlipCDC.FlipCDCManager",
+          "dataSync.QuickCDC.QuickCDCManager",
+          "dataSync.RabinCDC.RabinCDCManager");
 
   private final String basePath;
   private File targetFile;
@@ -50,13 +59,17 @@ public class SyncServerHandler extends SimpleChannelInboundHandler<Object> {
     this.bos = new BufferedOutputStream(new FileOutputStream(tempFile));
     this.localManifest = new HashMap<>();
 
-    // 3. 反射加载 CDC
+    // 3. 反射加载 CDC（仅允许白名单中的类）
     CDCManager cdcManager;
+    if (!ALLOWED_CDC_CLASSES.contains(req.cdcClassName)) {
+      ctx.close();
+      return;
+    }
     try {
       Class<?> clazz = Class.forName(req.cdcClassName);
       cdcManager = (CDCManager) clazz.getDeclaredConstructor().newInstance();
     } catch (Exception e) {
-      ctx.close(); // 严重错误关闭连接
+      ctx.close();
       return;
     }
 
@@ -99,8 +112,11 @@ public class SyncServerHandler extends SimpleChannelInboundHandler<Object> {
     if (oldFileRaf != null) oldFileRaf.close();
 
     // 原子替换
-    if (targetFile.exists()) targetFile.delete();
-    tempFile.renameTo(targetFile);
+    Files.move(
+        tempFile.toPath(),
+        targetFile.toPath(),
+        StandardCopyOption.REPLACE_EXISTING,
+        StandardCopyOption.ATOMIC_MOVE);
 
     ctx.writeAndFlush("SUCCESS");
 

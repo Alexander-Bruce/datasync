@@ -53,7 +53,7 @@ public class JWTFilter extends OncePerRequestFilter {
       try {
         uid = jwtService.extractUid(token);
       } catch (Exception e) {
-        response.setStatus(HttpStatus.OK.value());
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType("application/json");
 
         Map<String, Object> responseMap = new HashMap<>();
@@ -85,7 +85,7 @@ public class JWTFilter extends OncePerRequestFilter {
           SecurityContextHolder.getContext().setAuthentication(authToken);
         }
       } catch (UsernameNotFoundException e) {
-        response.setStatus(HttpStatus.OK.value());
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType("application/json");
 
         Map<String, Object> responseMap = new HashMap<>();
