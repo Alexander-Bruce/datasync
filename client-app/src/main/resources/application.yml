@@ -1,0 +1,47 @@
+server:
+  port: 8092
+  max-http-request-header-size: 1048576
+  address: 0.0.0.0
+
+spring:
+  profiles:
+    active: dev
+
+  datasource:
+    sqlite:
+      jdbc-url: ${application.datasource.sqlite.url}
+      driver-class-name: org.sqlite.JDBC
+      hikari:
+        auto-commit: false
+
+    jpa:
+      hibernate:
+        ddl-auto: none
+
+  jwt:
+    secretkey: ${application.jwt.secretkey}
+    freshTokenExpiration: ${application.jwt.freshTokenExpiration}
+    accessTokenExpiration: ${application.jwt.accessTokenExpiration}
+    token-name: ${application.jwt.token-name}
+    uid: ${application.jwt.uid}
+    role: ${application.jwt.role}
+
+  mybatis:
+    mapper-locations: classpath:backend/mapper/**/*.xml
+    configuration:
+      map-underscore-to-camel-case: true
+      log-impl: ${application.mybatis.configuration.log-impl}
+
+  netty:
+    server:
+      port: ${application.netty.server.port}
+      basePath: ${application.netty.server.basePath}
+    client:
+      port: ${application.netty.client.port}
+      host: ${application.netty.client.host}
+
+logging:
+  file:
+    name: log/log.log
+  level:
+    root: INFO

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="backend.mapper.sqlite.FileMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO File (
+            alias, path, remote_host, scheduled,
+            cdc_alg, is_dir, is_sync, description, user_id, update_time
+        )
+        VALUES (
+                   #{alias}, #{path}, #{remoteHost}, #{scheduled},
+                   #{cdcAlg}, #{isDir}, #{isSync}, #{description}, #{userId}, #{updateTime}
+               )
+    </insert>
+
+    <update id="update">
+        UPDATE File
+        <set>
+            <if test="alias != null">alias = #{alias},</if>
+            <if test="path != null">path = #{path},</if>
+            <if test="remoteHost != null">remote_host = #{remoteHost},</if>
+            <if test="scheduled != null">scheduled = #{scheduled},</if>
+            <if test="cdcAlg != null">cdc_alg = #{cdcAlg},</if>
+            <if test="isDir != null">is_dir = #{isDir},</if>
+            <if test="isSync != null">is_sync = #{isSync},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="updateTime != null">update_time = #{updateTime}</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM File WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultType="backend.model.entity.File">
+        SELECT * FROM File WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectByFileId" resultType="backend.model.entity.File">
+        SELECT * FROM File WHERE id = #{fileId}
+    </select>
+
+    <!-- 动态查询 -->
+    <select id="selectList" resultType="backend.model.entity.File">
+        SELECT * FROM File
+        <where>
+            <if test="alias != null">
+                AND alias LIKE '%' || #{alias} || '%'
+            </if>
+            <if test="path != null">
+                AND path = #{path}
+            </if>
+            <if test="cdcAlg != null">
+                AND cdc_alg = #{cdcAlg}
+            </if>
+            <if test="isSync != null">
+                AND is_sync = #{isSync}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectByPath" resultType="backend.model.entity.File">
+        SELECT * FROM File WHERE path = #{param1} AND user_id = #{param2}
+    </select>
+
+    <select id="countByAliasForUser" resultType="int">
+        SELECT COUNT(*)
+        FROM File
+        WHERE alias = #{alias}
+          AND user_id = #{userId}
+        <if test="excludeId != null and excludeId > 0">
+          AND id != #{excludeId}
+        </if>
+    </select>
+
+    <update id="updateSyncById">
+        UPDATE File
+        SET is_sync = #{isSync},
+            update_time = datetime('now', 'localtime')
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectAll" resultType="backend.model.entity.File">
+        SELECT * FROM File
+    </select>
+
+    <update id="markAsStale">
+        UPDATE File SET is_sync = false WHERE id = #{id}
+    </update>
+
+</mapper>

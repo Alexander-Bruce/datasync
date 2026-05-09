@@ -1,0 +1,67 @@
+server:
+  port: 8090
+  max-http-request-header-size: 1048576
+  address: 0.0.0.0
+
+spring:
+  profiles:
+    active: dev
+
+  datasource:
+    mysql:
+      url: ${application.datasource.mysql.url}
+      username: ${application.datasource.mysql.username}
+      password: ${application.datasource.mysql.password}
+
+    sqlite:
+      url: ${application.datasource.sqlite.url}
+      driver-class-name: org.sqlite.JDBC
+
+    jpa:
+      hibernate:
+        ddl-auto: none
+
+  redis:
+    master:
+      host: ${application.redis.master.host}
+      port: ${application.redis.master.port}
+      password: ${application.redis.master.password}
+    slave:
+      host: ${application.redis.slave.host}
+      port: ${application.redis.slave.port}
+      password: ${application.redis.slave.host}
+
+  aws:
+    s3:
+      accesskey: ${application.aws.s3.accesskey}
+      secretkey: ${application.aws.s3.secretkey}
+      region: ${application.aws.s3.region:auto}
+      endpoint: ${application.aws.s3.endpoint}
+      bucket: ${application.aws.s3.bucket}
+      path-style-access: ${application.aws.s3.path-style-access:true}
+
+  jwt:
+    secretkey: ${application.jwt.secretkey}
+    freshTokenExpiration: ${application.jwt.freshTokenExpiration}
+    accessTokenExpiration: ${application.jwt.accessTokenExpiration}
+    token-name: ${application.jwt.token-name}
+    uid: ${application.jwt.uid}
+    role: ${application.jwt.role}
+
+  mybatis:
+    configuration:
+      log-impl: ${application.mybatis.configuration.log-impl}
+
+  netty:
+    server:
+      port: ${application.netty.server.port}
+      basePath: ${application.netty.server.basePath}
+    client:
+      port: ${application.netty.client.port}
+      host: ${application.netty.client.host}
+
+logging:
+  file:
+    name: log/log.log
+  level:
+    root: INFO

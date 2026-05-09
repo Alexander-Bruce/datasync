@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="backend.mapper.sqlite.UserMapper">
+
+    <insert id="insert">
+        INSERT INTO User (
+            id, username, email, avatar, user_agent, refresh_token, access_token
+        )
+        VALUES (
+                   #{id}, #{username}, #{email}, #{avatar}, #{userAgent}, #{refreshToken}, #{accessToken}
+               )
+        ON CONFLICT(email) DO UPDATE SET
+            id = excluded.id,
+            username = excluded.username,
+            avatar = excluded.avatar,
+            user_agent = excluded.user_agent,
+            refresh_token = excluded.refresh_token,
+            access_token = excluded.access_token
+    </insert>
+
+    <update id="update">
+        UPDATE User
+        <set>
+            <if test="id != null">id = #{id},</if>
+            <if test="username != null">username = #{username},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="userAgent != null">user_agent = #{userAgent},</if>
+            <if test="refreshToken != null">refresh_token = #{refreshToken},</if>
+            <if test="accessToken != null">access_token = #{accessToken}</if>
+        </set>
+        WHERE email = #{email}
+    </update>
+
+    <delete id="deleteByEmail">
+        DELETE FROM User WHERE email = #{email}
+    </delete>
+
+    <select id="selectByEmail" resultType="backend.model.entity.User">
+        SELECT * FROM User WHERE email = #{email}
+    </select>
+
+    <select id="selectById" resultType="backend.model.entity.User">
+        SELECT * FROM User WHERE id = #{id}
+    </select>
+
+</mapper>
