@@ -6,15 +6,15 @@ application:
   netty:
     server:
       port: 8443
-      basePath: /path/to/local/sync/folder
+      basePath: /path/to/local/sync/folder   # local root directory for synced files
     client:
       port: 8443
-      host: your.server.host.or.ip
+      host: xxxxxx            # your server IP or hostname
 
   jwt:
-    secretkey: your_base64_encoded_jwt_secret_at_least_256bits
-    freshTokenExpiration: 2592000000   # 30 days in ms
-    accessTokenExpiration: 25920000000 # 300 days in ms
+    secretkey: xxxxxx         # must be identical to the server's JWT secretkey
+    freshTokenExpiration: 2592000000    # 30 days in ms
+    accessTokenExpiration: 25920000000  # 300 days in ms
     token-name: Authorization
     uid: uid
     role: role

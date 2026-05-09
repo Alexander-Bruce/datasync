@@ -2,8 +2,8 @@ application:
   datasource:
     mysql:
       url: jdbc:mysql://localhost:3306/datasync
-      username: your_mysql_username
-      password: your_mysql_password
+      username: root
+      password: xxxxxx        # your MySQL password
 
     sqlite:
       url: jdbc:sqlite:db/sqlite.db?journal_mode=WAL&busy_timeout=5000
@@ -12,16 +12,16 @@ application:
     master:
       host: localhost
       port: 6379
-      password: your_redis_password
+      password: xxxxxx        # your Redis password
     slave:
       host: localhost
       port: 6380
-      password: your_redis_password
+      password: xxxxxx        # your Redis password
 
   aws:
     s3:
-      accesskey: your_s3_access_key
-      secretkey: your_s3_secret_key
+      accesskey: xxxxxx       # your S3 access key (optional, only needed for S3 storage)
+      secretkey: xxxxxx       # your S3 secret key
       region: auto
       endpoint: https://your-s3-endpoint
       bucket: your-bucket-name
@@ -30,15 +30,15 @@ application:
   netty:
     server:
       port: 8443
-      basePath: /path/to/server/storage
+      basePath: /path/to/server/storage   # where synced files will be stored on server
     client:
       port: 8443
       host: localhost
 
   jwt:
-    secretkey: your_base64_encoded_jwt_secret_at_least_256bits
-    freshTokenExpiration: 2592000000   # 30 days in ms
-    accessTokenExpiration: 25920000000 # 300 days in ms
+    secretkey: xxxxxx         # run: openssl rand -base64 32
+    freshTokenExpiration: 2592000000    # 30 days in ms
+    accessTokenExpiration: 25920000000  # 300 days in ms
     token-name: Authorization
     uid: uid
     role: role
