@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Server: compile check ────────────────────────────────────────────
+  build-server:
+    name: Server (compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Compile server
+        working-directory: server
+        run: ./mvnw compile -DskipTests --no-transfer-progress
+
+  # ── Client-app: compile + unit tests ─────────────────────────────────
+  build-client:
+    name: Client-app (compile + unit tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Compile client-app
+        working-directory: client-app
+        run: ./mvnw compile -DskipTests --no-transfer-progress
+
+      - name: Run unit tests (SQLite only, no external deps)
+        working-directory: client-app
+        run: |
+          ./mvnw test \
+            -Dtest=SqliteSchemaInitializerTest \
+            --no-transfer-progress
+
+  # ── Frontend: format check + lint ────────────────────────────────────
+  lint-frontend:
+    name: Frontend (Prettier + ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sync-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sync-app
+        run: npm ci
+
+      - name: Prettier format check
+        working-directory: sync-app
+        run: npx prettier --check "src/**/*.{js,vue,css,html}"
+
+      - name: ESLint
+        working-directory: sync-app
+        run: npm run lint
