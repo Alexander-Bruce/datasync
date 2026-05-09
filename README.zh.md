@@ -217,6 +217,7 @@ datasync/
 ```bash
 git clone https://github.com/Alexander-Bruce/datasync.git
 cd datasync
+git config core.hooksPath .githooks   # 启用提交前格式检查
 ```
 
 ---
@@ -441,12 +442,20 @@ application:
 ## 贡献指南
 
 1. Fork 本仓库
-2. 创建特性分支：`git checkout -b feature/my-feature`
-3. 提交更改：`git commit -m 'feat: add my feature'`
-4. 推送分支：`git push origin feature/my-feature`
-5. 创建 Pull Request
+2. 克隆并启用 pre-commit hook：
+   ```bash
+   git clone https://github.com/<you>/datasync.git
+   cd datasync
+   git config core.hooksPath .githooks
+   ```
+3. 创建特性分支：`git checkout -b feature/my-feature`
+4. 提交更改：`git commit -m 'feat: add my feature'`
+5. 推送分支：`git push origin feature/my-feature`
+6. 创建 Pull Request
 
-Java 代码请遵循 [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)，前端代码提交前请运行 `prettier`。
+pre-commit hook 会在每次提交前自动检查代码格式：
+- **Java**：[Google Java Format](https://google.github.io/styleguide/javaguide.html) via Spotless — 修复命令：`cd server && ./mvnw spotless:apply`
+- **前端**：Prettier + ESLint — 修复命令：`cd sync-app && npm run format`
 
 ---
 

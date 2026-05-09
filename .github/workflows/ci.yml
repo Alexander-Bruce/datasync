@@ -21,6 +21,10 @@ jobs:
           distribution: temurin
           cache: maven
 
+      - name: Check Java format (google-java-format)
+        working-directory: server
+        run: ./mvnw spotless:check --no-transfer-progress
+
       - name: Compile server
         working-directory: server
         run: ./mvnw compile -DskipTests --no-transfer-progress
@@ -38,6 +42,10 @@ jobs:
           java-version: '21'
           distribution: temurin
           cache: maven
+
+      - name: Check Java format (google-java-format)
+        working-directory: client-app
+        run: ./mvnw spotless:check --no-transfer-progress
 
       - name: Compile client-app
         working-directory: client-app

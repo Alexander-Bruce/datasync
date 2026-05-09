@@ -217,6 +217,7 @@ datasync/
 ```bash
 git clone https://github.com/Alexander-Bruce/datasync.git
 cd datasync
+git config core.hooksPath .githooks   # enable pre-commit format check
 ```
 
 ---
@@ -447,12 +448,20 @@ See [Database Tables.en.md](./Database%20Tables.en.md)
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m 'feat: add my feature'`
-4. Push to the branch: `git push origin feature/my-feature`
-5. Open a pull request
+2. Clone and enable the pre-commit hook:
+   ```bash
+   git clone https://github.com/<you>/datasync.git
+   cd datasync
+   git config core.hooksPath .githooks
+   ```
+3. Create a feature branch: `git checkout -b feature/my-feature`
+4. Commit your changes: `git commit -m 'feat: add my feature'`
+5. Push to the branch: `git push origin feature/my-feature`
+6. Open a pull request
 
-Please follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) for Java code and run `prettier` on frontend changes before submitting.
+The pre-commit hook automatically checks code format before each commit:
+- **Java**: [Google Java Format](https://google.github.io/styleguide/javaguide.html) via Spotless — fix with `cd server && ./mvnw spotless:apply`
+- **Frontend**: Prettier + ESLint — fix with `cd sync-app && npm run format`
 
 ---
 

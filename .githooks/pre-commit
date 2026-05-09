@@ -1,0 +1,74 @@
+#!/bin/sh
+# Pre-commit hook: check Java format (Spotless) + Frontend format (Prettier + ESLint)
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+FAILED=0
+
+# ── Java: Spotless (google-java-format) ─────────────────────────────
+JAVA_STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
+
+if [ -n "$JAVA_STAGED" ]; then
+    echo "Checking Java format (google-java-format via Spotless)..."
+
+    # Check server
+    if echo "$JAVA_STAGED" | grep -q "^server/"; then
+        (cd server && ./mvnw spotless:check -q --no-transfer-progress 2>/dev/null)
+        if [ $? -ne 0 ]; then
+            echo "${RED}✗ server: Java format violations found${NC}"
+            echo "  Run: cd server && ./mvnw spotless:apply"
+            FAILED=1
+        else
+            echo "${GREEN}✓ server: Java format OK${NC}"
+        fi
+    fi
+
+    # Check client-app
+    if echo "$JAVA_STAGED" | grep -q "^client-app/"; then
+        (cd client-app && ./mvnw spotless:check -q --no-transfer-progress 2>/dev/null)
+        if [ $? -ne 0 ]; then
+            echo "${RED}✗ client-app: Java format violations found${NC}"
+            echo "  Run: cd client-app && ./mvnw spotless:apply"
+            FAILED=1
+        else
+            echo "${GREEN}✓ client-app: Java format OK${NC}"
+        fi
+    fi
+fi
+
+# ── Frontend: Prettier + ESLint ──────────────────────────────────────
+FRONT_STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- 'sync-app/src/*.js' 'sync-app/src/*.vue' 'sync-app/src/*.css' 'sync-app/src/*.html')
+
+if [ -n "$FRONT_STAGED" ]; then
+    echo "Checking frontend format (Prettier + ESLint)..."
+
+    if [ -d "sync-app/node_modules" ]; then
+        (cd sync-app && npx prettier --check "src/**/*.{js,vue,css,html}" 2>/dev/null)
+        if [ $? -ne 0 ]; then
+            echo "${RED}✗ sync-app: Prettier format violations found${NC}"
+            echo "  Run: cd sync-app && npm run format"
+            FAILED=1
+        else
+            echo "${GREEN}✓ sync-app: Prettier OK${NC}"
+        fi
+
+        (cd sync-app && npx eslint --cache --quiet "src/**/*.{js,vue}" 2>/dev/null)
+        if [ $? -ne 0 ]; then
+            echo "${RED}✗ sync-app: ESLint errors found${NC}"
+            echo "  Run: cd sync-app && npm run lint"
+            FAILED=1
+        else
+            echo "${GREEN}✓ sync-app: ESLint OK${NC}"
+        fi
+    else
+        echo "⚠ sync-app/node_modules not found, skipping frontend checks"
+        echo "  Run: cd sync-app && npm install"
+    fi
+fi
+
+if [ $FAILED -ne 0 ]; then
+    echo ""
+    echo "${RED}Commit blocked: fix the issues above, then try again.${NC}"
+    exit 1
+fi
