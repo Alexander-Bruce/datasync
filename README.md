@@ -12,6 +12,35 @@ A distributed file synchronization and backup system built on Content-Defined Ch
 
 ---
 
+## Screenshots
+
+| Dashboard | File Explorer |
+|-----------|--------------|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![File Explorer](docs/screenshots/file-explorer-grid.png) |
+
+| Group Management | Group File Browser |
+|-----------------|-------------------|
+| ![Group Management](docs/screenshots/group-management.png) | ![Group Explorer](docs/screenshots/group-explorer.png) |
+
+| Log Page | Sync Algorithm Selection |
+|----------|--------------------------|
+| ![Log Page](docs/screenshots/log-page.png) | ![Sync Algorithm](docs/screenshots/sync-algorithm.png) |
+
+<details>
+<summary>More screenshots</summary>
+
+| Login | Register |
+|-------|----------|
+| ![Login](docs/screenshots/login.png) | ![Register](docs/screenshots/register.png) |
+
+| File List View | Account Settings |
+|---------------|-----------------|
+| ![File List](docs/screenshots/file-explorer-list.png) | ![Account Settings](docs/screenshots/account-settings.png) |
+
+</details>
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -19,6 +48,7 @@ A distributed file synchronization and backup system built on Content-Defined Ch
 - [Tech Stack](#tech-stack)
 - [Directory Structure](#directory-structure)
 - [Quick Start](#quick-start)
+- [Configuration Reference](#configuration-reference)
 - [Features](#features)
 - [API Documentation](#api-documentation)
 - [Database Design](#database-design)
@@ -47,8 +77,8 @@ DataSync consists of three sub-modules:
 - **Local Metadata**: SQLite on the client side for managing file trees and sync state
 - **Scheduled Sync**: Cron expression support for automated sync policies
 - **Group Sharing**: Add members by email, share sync task folders to groups; members can browse and pull down
-- **Multi-User Isolated Storage**: Server stores files under `email/folderName` namespaces, preventing cross-user collisions for identically named folders
-- **Shared Deletion Guard**: Deleting a sync task is blocked while its folder is shared to a group with active members; the group must be deleted or all members removed first
+- **Multi-User Isolated Storage**: Server stores files under `email/folderName` namespaces, preventing cross-user collisions
+- **Shared Deletion Guard**: Deleting a sync task is blocked while its folder is shared to a group with active members
 
 ---
 
@@ -72,12 +102,11 @@ DataSync consists of three sub-modules:
 ┌──────────────────────────────────────────────────────────────┐
 │                   server (Spring Boot)                        │
 │  MySQL │ FileService │ ServerSyncController │ GroupController │
-│  GroupService → groups.json                                   │
 │  NettySyncServer ← SyncServerHandler                         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-For a detailed explanation of system boundaries, data flows, and invariants, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+For full details see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 **Upload Sync Flow**
 
@@ -116,14 +145,13 @@ For a detailed explanation of system boundaries, data flows, and invariants, see
 
 ### Frontend (sync-app)
 
-| Technology  | Version | Purpose                              |
-| ----------- | ------- | ------------------------------------ |
-| Vue 3       | 3.5     | Frontend framework (Composition API) |
-| Vue Router  | 4       | Client-side routing                  |
-| Electron    | 39      | Desktop application container        |
-| Tailwind CSS| 3       | Utility-first CSS framework          |
-| Axios       | —       | HTTP client                          |
-| Prettier    | 3       | Code formatter                       |
+| Technology   | Version | Purpose                              |
+| ------------ | ------- | ------------------------------------ |
+| Vue 3        | 3.5     | Frontend framework (Composition API) |
+| Vue Router   | 4       | Client-side routing                  |
+| Electron     | 39      | Desktop application container        |
+| Tailwind CSS | 3       | Utility-first CSS framework          |
+| Axios        | —       | HTTP client                          |
 
 ---
 
@@ -132,61 +160,39 @@ For a detailed explanation of system boundaries, data flows, and invariants, see
 ```
 datasync/
 ├── server/                          # Spring Boot server
-│   └── src/main/java/backend/
-│       ├── controller/
-│       │   ├── UnAuthController.java        # Login / Register (no auth)
-│       │   ├── GroupController.java         # Group management endpoints
-│       │   ├── client/SyncController.java   # Upload sync trigger
-│       │   └── server/ServerSyncController.java
-│       ├── service/
-│       │   ├── FileService.java
-│       │   └── GroupService.java
-│       ├── model/
-│       │   ├── entity/User.java
-│       │   ├── Group.java
-│       │   └── GroupFileNode.java
-│       ├── sync/                    # Netty server
-│       │   ├── server/NettySyncServer.java
-│       │   └── server/SyncServerHandler.java
-│       └── src/main/java/dataSync/ # CDC algorithm implementations
-│           ├── CDCManager.java
+│   └── src/main/java/
+│       ├── backend/
+│       │   ├── controller/          # REST endpoints (auth, sync, group, user)
+│       │   ├── service/             # Business logic
+│       │   ├── model/               # Entities and DTOs
+│       │   ├── sync/                # Netty server (NettySyncServer, SyncServerHandler)
+│       │   └── util/
+│       └── dataSync/                # CDC algorithm implementations
 │           ├── FastCDC/
 │           ├── FlipCDC/
 │           ├── QuickCDC/
 │           └── RabinCDC/
 │
 ├── client-app/                      # Spring Boot client agent
-│   └── src/main/java/backend/
-│       ├── controller/
-│       │   ├── FileController.java
-│       │   ├── GroupController.java
-│       │   ├── SyncController.java
-│       │   └── UserController.java
-│       ├── service/FileService.java
-│       ├── mapper/sqlite/
-│       │   ├── FileMapper.java
-│       │   └── SubFileMapper.java
-│       ├── sync/                    # Netty client
-│       │   ├── NettyClientManager.java
-│       │   └── client/NettySyncClient.java
-│       └── task/                   # Scheduled sync & file watcher
+│   └── src/main/java/
+│       ├── backend/
+│       │   ├── controller/          # REST endpoints (file, sync, group, user, log)
+│       │   ├── service/             # Business logic + file tree management
+│       │   ├── mapper/sqlite/       # MyBatis SQLite mappers
+│       │   ├── sync/                # Netty client (NettySyncClient, NettyClientManager)
+│       │   └── task/                # Scheduled sync + file watcher
+│       └── dataSync/                # CDC algorithm implementations (same as server)
 │
 ├── sync-app/                        # Electron + Vue 3 desktop
 │   └── src/renderer/src/
-│       ├── views/
-│       │   ├── DashBoard.vue        # Sync task management
-│       │   ├── FileExplorer.vue     # Local file tree browser
-│       │   ├── GroupPage.vue        # Group management
-│       │   ├── GroupExplorer.vue    # Group shared file browser
-│       │   ├── LogPage.vue          # Operation logs
-│       │   ├── Login.vue
-│       │   └── Register.vue
+│       ├── views/                   # Dashboard, FileExplorer, GroupPage, GroupExplorer, LogPage, Login, Register
+│       ├── components/
 │       └── utils/request.js         # Axios wrapper
 │
+├── docs/screenshots/                # UI screenshots
 ├── API.en.md                        # REST API documentation
 ├── Database Tables.en.md            # Database schema documentation
-├── ARCHITECTURE.md                  # System architecture details
-└── AGENTS.md                        # AI agent operation notes
+└── ARCHITECTURE.md                  # System architecture details
 ```
 
 ---
@@ -195,48 +201,44 @@ datasync/
 
 ### Prerequisites
 
-- Java 21+
-- Maven 3.8+
-- Node.js 18+ / npm
-- MySQL 8.0+
-- Redis 6+
+| Requirement | Version  | Notes |
+|-------------|----------|-------|
+| Java JDK    | 21+      | Required for server and client-app |
+| Maven       | 3.8+     | Or use the included `mvnw` wrapper |
+| Node.js     | 18+      | Required for sync-app |
+| MySQL       | 8.0+     | Server-side persistent storage |
+| Redis       | 6+       | Server-side caching |
+| OpenSSL     | any      | For RSA key pair generation |
 
-### 1. Configure the Server
+---
 
-Copy the example config and fill in your values:
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Alexander-Bruce/datasync.git
+cd datasync
+```
+
+---
+
+### 2. Set up the Server
+
+**Create the database schema** (MySQL):
+
+```sql
+CREATE DATABASE datasync CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+**Copy the example config and fill in your values:**
 
 ```bash
 cp server/src/main/resources/application-dev.yml.example \
    server/src/main/resources/application-dev.yml
 ```
 
-Edit `application-dev.yml` with your MySQL, Redis, Netty, and JWT settings. Key fields:
+Edit `server/src/main/resources/application-dev.yml` — see [Configuration Reference](#configuration-reference) below.
 
-```yaml
-application:
-  datasource:
-    mysql:
-      url: jdbc:mysql://localhost:3306/datasync
-      username: your_mysql_user
-      password: your_mysql_password
-  redis:
-    master:
-      host: localhost
-      port: 6379
-      password: your_redis_password
-  aws:
-    s3:
-      accesskey: your_s3_access_key   # optional, for S3 storage backend
-      secretkey: your_s3_secret_key
-  netty:
-    server:
-      port: 8443
-      basePath: /path/to/server/storage
-  jwt:
-    secretkey: your_base64_encoded_256bit_secret
-```
-
-Generate an RSA key pair for encrypted Netty transport:
+**Generate RSA keys for encrypted Netty transport:**
 
 ```bash
 mkdir -p server/conf
@@ -244,41 +246,142 @@ openssl genrsa -out server/conf/rsa-private.pem 2048
 openssl rsa -in server/conf/rsa-private.pem -pubout -out server/conf/rsa-public.pem
 ```
 
-Start the server:
+**Start the server:**
 
 ```bash
 cd server
-./mvnw spring-boot:run
+./mvnw spring-boot:run      # Linux / macOS
+mvnw.cmd spring-boot:run    # Windows
 ```
 
-### 2. Configure the Client Agent
+The server starts on **port 8090** (HTTP) and **port 8443** (Netty, configurable).
+
+---
+
+### 3. Set up the Client Agent
+
+**Copy the example config:**
 
 ```bash
 cp client-app/src/main/resources/application-dev.yml.example \
    client-app/src/main/resources/application-dev.yml
 ```
 
-Edit `application-dev.yml` and copy the server's public key:
+Edit `client-app/src/main/resources/application-dev.yml` — see [Configuration Reference](#configuration-reference).
+
+**Copy the server's public key:**
 
 ```bash
+mkdir -p client-app/conf
 cp server/conf/rsa-public.pem client-app/conf/rsa-public.pem
 ```
 
-Start the client agent:
+**Start the client agent:**
 
 ```bash
 cd client-app
-./mvnw spring-boot:run
+./mvnw spring-boot:run      # Linux / macOS
+mvnw.cmd spring-boot:run    # Windows
 ```
 
-### 3. Start the Desktop Client
+The client agent starts on **port 8092**.
+
+---
+
+### 4. Start the Desktop UI
 
 ```bash
 cd sync-app
 npm install
-npm run dev        # Development mode (with hot reload)
-npm run build      # Production build
+npm run dev        # Development mode with hot reload
+npm run build      # Package for distribution
 ```
+
+Open the Electron window and log in with your registered account.
+
+---
+
+## Configuration Reference
+
+### Server (`server/src/main/resources/application-dev.yml`)
+
+```yaml
+application:
+  datasource:
+    mysql:
+      url: jdbc:mysql://<host>:3306/datasync   # MySQL JDBC URL
+      username: <your_mysql_username>
+      password: <your_mysql_password>
+
+  redis:
+    master:
+      host: <redis_host>
+      port: 6379
+      password: <your_redis_password>
+    slave:
+      host: <redis_slave_host>      # Can be same as master for single-node
+      port: 6380
+      password: <your_redis_password>
+
+  aws:
+    s3:
+      accesskey: <your_s3_access_key>   # Optional: only needed for S3 storage backend
+      secretkey: <your_s3_secret_key>
+      region: auto
+      endpoint: <your_s3_compatible_endpoint>
+      bucket: <your_bucket_name>
+      path-style-access: true
+
+  netty:
+    server:
+      port: 8443                         # Netty listening port (must match client)
+      basePath: /path/to/server/storage  # Where synced files are stored on server
+
+  jwt:
+    secretkey: <base64_encoded_256bit_secret>  # Generate: openssl rand -base64 32
+    freshTokenExpiration: 2592000000            # Refresh token TTL (ms), default 30 days
+    accessTokenExpiration: 25920000000          # Access token TTL (ms), default 300 days
+    token-name: Authorization
+    uid: uid
+    role: role
+
+  mybatis:
+    type-aliases-package: backend.model.entity
+    configuration:
+      log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+```
+
+### Client Agent (`client-app/src/main/resources/application-dev.yml`)
+
+```yaml
+application:
+  datasource:
+    sqlite:
+      url: jdbc:sqlite:datasync-user.db?journal_mode=WAL&busy_timeout=5000
+
+  netty:
+    server:
+      port: 8443                           # Must match server netty.server.port
+      basePath: /path/to/local/sync/root   # Local root for synced files
+    client:
+      port: 8443                           # Must match server netty.server.port
+      host: <server_ip_or_hostname>        # Address of the server
+
+  jwt:
+    secretkey: <same_secret_as_server>     # Must be identical to server's JWT secret
+    freshTokenExpiration: 2592000000
+    accessTokenExpiration: 25920000000
+    token-name: Authorization
+    uid: uid
+    role: role
+
+  mybatis:
+    type-aliases-package: backend.model.entity
+    configuration:
+      log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+```
+
+> **Tip:** Generate a JWT secret key with: `openssl rand -base64 32`
 
 ---
 
@@ -308,11 +411,9 @@ npm run build      # Production build
 
 ### Group File Browser (GroupExplorer)
 
-- Enter by clicking any scope card in the Dashboard group area
 - Path navigation: double-click folders to descend, breadcrumb to jump back
 - Grid / list view toggle
 - Download button: asynchronously downloads the current scope to a local path
-- Right-click menu: enter folder / download to local
 
 ---
 
@@ -339,7 +440,7 @@ See [Database Tables.en.md](./Database%20Tables.en.md)
 | CORS control        | Spring Security CORS configuration                 |
 | Session policy      | Stateless (no server-side session)                 |
 
-> **Note**: Never commit `application-dev.yml` or `application-prod.yml` to version control — they contain secrets. Use the provided `.example` files as templates.
+> **Important:** Never commit `application-dev.yml` or `application-prod.yml` to version control — they contain secrets. Both files are listed in `.gitignore`. Use the provided `.example` files as templates.
 
 ---
 
@@ -351,7 +452,7 @@ See [Database Tables.en.md](./Database%20Tables.en.md)
 4. Push to the branch: `git push origin feature/my-feature`
 5. Open a pull request
 
-Please follow [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) for Java code and run `prettier` on frontend changes before submitting.
+Please follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) for Java code and run `prettier` on frontend changes before submitting.
 
 ---
 
