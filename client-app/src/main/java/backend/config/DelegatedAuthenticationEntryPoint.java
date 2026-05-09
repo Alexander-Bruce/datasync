@@ -28,11 +28,11 @@ public class DelegatedAuthenticationEntryPoint implements AuthenticationEntryPoi
       HttpServletResponse response,
       AuthenticationException authException)
       throws IOException, ServletException {
-    response.setStatus(HttpStatus.OK.value());
+    response.setStatus(HttpStatus.UNAUTHORIZED.value());
     response.setContentType("application/json");
 
     Map<String, Object> responseMap = new HashMap<>();
-    responseMap.put("code", HttpStatus.NOT_FOUND.value());
+    responseMap.put("code", HttpStatus.UNAUTHORIZED.value());
     responseMap.put("message", authException.getMessage());
     responseMap.put("time", System.currentTimeMillis() / 1000);
     responseMap.put("data", null);
