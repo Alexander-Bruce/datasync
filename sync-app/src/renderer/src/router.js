@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import Login from './views/Login.vue'
 import Register from './views/Register.vue'
-import Dashboard from './views/Dashboard.vue'
+import Dashboard from './views/DashBoard.vue'
 import FileExplorer from './views/FileExplorer.vue'
 import LogPage from './views/LogPage.vue'
 import GroupPage from './views/GroupPage.vue'
