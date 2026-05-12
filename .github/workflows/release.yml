@@ -28,14 +28,6 @@ jobs:
               sync-app/dist/*.exe
               sync-app/dist/*.blockmap
               sync-app/dist/latest*.yml
-          - label: macOS installer
-            os: macos-13
-            build_script: build:mac
-            artifacts: |
-              sync-app/dist/*.dmg
-              sync-app/dist/*.zip
-              sync-app/dist/*.blockmap
-              sync-app/dist/latest*.yml
           - label: Linux packages
             os: ubuntu-latest
             build_script: build:linux
@@ -120,4 +112,5 @@ jobs:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: DataSync ${{ github.event.inputs.tag || github.ref_name }}
           files: release-assets/*
+          prerelease: true
           generate_release_notes: true
