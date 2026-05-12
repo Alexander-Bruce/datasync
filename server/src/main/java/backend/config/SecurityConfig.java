@@ -68,7 +68,12 @@ public class SecurityConfig implements WebMvcConfigurer {
             request ->
                 request
                     .requestMatchers(
-                        "/resources/**", "/unauthorized/**", "/client/**", "/server/**")
+                        "/",
+                        "/health",
+                        "/resources/**",
+                        "/unauthorized/**",
+                        "/client/**",
+                        "/server/**")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
