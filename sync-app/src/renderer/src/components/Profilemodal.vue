@@ -45,6 +45,10 @@
         <div class="divider-line"></div>
 
         <!-- Form -->
+        <div class="section-title">
+          <h4>账号资料</h4>
+          <span>用于客户端显示和服务端账号信息</span>
+        </div>
         <div class="form-grid">
           <div class="field-group">
             <label class="field-label">用户名</label>
@@ -96,6 +100,56 @@
           </div>
         </div>
 
+        <div class="divider-line"></div>
+
+        <div class="section-title">
+          <h4>服务器配置</h4>
+          <span>修改后会保存到本机，下次启动继续使用</span>
+        </div>
+        <div class="form-grid config-grid">
+          <div class="field-group full-width">
+            <label class="field-label">服务端 API 地址</label>
+            <input
+              v-model.trim="clientConfig.serverBaseUrl"
+              type="text"
+              class="ds-input"
+              placeholder="http://119.91.105.168:7860"
+            />
+          </div>
+          <div class="field-group">
+            <label class="field-label">同步主机</label>
+            <input
+              v-model.trim="clientConfig.syncHost"
+              type="text"
+              class="ds-input"
+              placeholder="119.91.105.168"
+            />
+          </div>
+          <div class="field-group">
+            <label class="field-label">同步端口</label>
+            <input
+              v-model.number="clientConfig.syncPort"
+              type="number"
+              min="1"
+              max="65535"
+              class="ds-input"
+            />
+          </div>
+        </div>
+
+        <div v-if="configMessage.text" :class="['msg-bar', configMessage.type]">
+          {{ configMessage.text }}
+        </div>
+
+        <div class="config-actions">
+          <button class="btn-cancel" :disabled="configBusy" @click="testServerConfig">
+            {{ configTesting ? '测试中...' : '测试连接' }}
+          </button>
+          <button class="btn-save" :disabled="configBusy" @click="saveServerConfig">
+            {{ configSaving ? '保存中...' : '保存服务器配置' }}
+          </button>
+        </div>
+
         <!-- Error/Success -->
         <div v-if="message.text" :class="['msg-bar', message.type]">
           {{ message.text }}
@@ -128,8 +182,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
-import HttpManager from '../utils/request'
+import { computed, ref, reactive, watch } from 'vue'
+import HttpManager, { getCachedClientConfig, setCachedClientConfig } from '../utils/request'
+import { clearConfigStateCache } from '../router'
 
 const props = defineProps({
   visible: Boolean,
@@ -138,9 +193,14 @@ const props = defineProps({
 const emit = defineEmits(['close', 'updated'])
 
 const isSaving = ref(false)
+const configSaving = ref(false)
+const configTesting = ref(false)
 const message = reactive({ text: '', type: '' })
+const configMessage = reactive({ text: '', type: '' })
 const form = reactive({ username: '', email: '', avatar: '' })
+const clientConfig = reactive({ serverBaseUrl: '', syncHost: '', syncPort: 8443 })
 const avatarFileName = ref('')
+const configBusy = computed(() => configSaving.value || configTesting.value)
 
 const fillForm = (u) => {
   if (!u) return
@@ -148,6 +208,26 @@ const fillForm = (u) => {
   form.email = u.email || ''
   form.avatar = u.avatar || ''
   avatarFileName.value = ''
+}
+
+const fillConfig = (config) => {
+  if (!config) return
+  clientConfig.serverBaseUrl = config.serverBaseUrl || clientConfig.serverBaseUrl
+  clientConfig.syncHost = config.syncHost || clientConfig.syncHost
+  clientConfig.syncPort = config.syncPort || clientConfig.syncPort || 8443
+}
+
+const loadClientConfig = async () => {
+  fillConfig(getCachedClientConfig())
+  try {
+    const res = await HttpManager.getNoAuth('/client/config')
+    const data = res?.data ?? res
+    fillConfig(data)
+    if (data?.configured) setCachedClientConfig(data)
+  } catch {
+    configMessage.text = '本地客户端服务暂未响应，稍后可重试。'
+    configMessage.type = 'error'
+  }
 }
 
 watch(
@@ -164,11 +244,57 @@ watch(
     if (v) {
       message.text = ''
       message.type = ''
+      configMessage.text = ''
+      configMessage.type = ''
       const saved = JSON.parse(localStorage.getItem('userInfo') || '{}')
       fillForm({ ...saved, ...(props.user || {}) })
+      loadClientConfig()
     }
   }
 )
+
+const submitServerConfig = async (url, successText, persist = false) => {
+  configMessage.text = ''
+  const payload = {
+    serverBaseUrl: clientConfig.serverBaseUrl,
+    syncHost: clientConfig.syncHost,
+    syncPort: Number(clientConfig.syncPort || 8443)
+  }
+  try {
+    const res = await HttpManager.postNoAuth(url, payload)
+    const data = res?.data ?? res
+    fillConfig(data)
+    if (persist && data?.configured) {
+      setCachedClientConfig(data)
+      clearConfigStateCache()
+    }
+    configMessage.text = successText
+    configMessage.type = 'success'
+    return true
+  } catch (err) {
+    configMessage.text = err.data?.message || err.message || '服务器配置失败'
+    configMessage.type = 'error'
+    return false
+  }
+}
+
+const testServerConfig = async () => {
+  configTesting.value = true
+  try {
+    await submitServerConfig('/client/config/test', '服务器连接正常。')
+  } finally {
+    configTesting.value = false
+  }
+}
+
+const saveServerConfig = async () => {
+  configSaving.value = true
+  try {
+    await submitServerConfig('/client/config', '服务器配置已保存到本机。', true)
+  } finally {
+    configSaving.value = false
+  }
+}
 
 const onAvatarFileChange = (event) => {
   const file = event.target.files?.[0]
@@ -264,12 +390,16 @@ const handleSave = async () => {
 }
 
 .modal-panel {
-  width: 480px;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
   background: #ffffff;
   border: 1px solid #e8eaed;
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 28px;
-  box-shadow: 0 24px 60px rgba(60, 64, 67, 0.18);
+  box-shadow:
+    0 24px 60px rgba(60, 64, 67, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
   font-family: 'Syne', sans-serif;
   animation: slideUp 0.2s ease;
 }
@@ -379,6 +509,27 @@ const handleSave = async () => {
   gap: 14px;
   margin-bottom: 16px;
 }
+.config-grid {
+  margin-bottom: 12px;
+}
+.section-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.section-title h4 {
+  margin: 0;
+  color: #202124;
+  font-size: 15px;
+  font-weight: 700;
+}
+.section-title span {
+  color: #80868b;
+  font-size: 12px;
+  text-align: right;
+}
 .field-group {
   display: flex;
   flex-direction: column;
@@ -388,11 +539,10 @@ const handleSave = async () => {
   grid-column: 1 / -1;
 }
 .field-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #5f6368;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 .optional {
   color: #80868b;
@@ -401,24 +551,30 @@ const handleSave = async () => {
   font-weight: 400;
 }
 .ds-input {
-  padding: 9px 12px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
+  height: 42px;
+  padding: 0 12px;
+  background: linear-gradient(#ffffff, #fbfdff);
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   color: #202124;
   font-size: 13px;
   font-family: 'Syne', sans-serif;
   outline: none;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.05);
   transition:
     border-color 0.2s,
-    box-shadow 0.2s;
+    box-shadow 0.2s,
+    background 0.2s;
 }
 .ds-input::placeholder {
   color: #80868b;
 }
 .ds-input:focus {
   border-color: #1a73e8;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(26, 115, 232, 0.12),
+    0 8px 22px rgba(60, 64, 67, 0.08);
 }
 .ds-input[readonly] {
   background: #f8fafd;
@@ -500,6 +656,12 @@ const handleSave = async () => {
   justify-content: flex-end;
   gap: 10px;
 }
+.config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 16px;
+}
 .btn-cancel {
   padding: 9px 20px;
   background: transparent;
@@ -515,6 +677,11 @@ const handleSave = async () => {
 .btn-cancel:hover {
   background: #edf2fa;
   color: #202124;
+}
+.btn-cancel:disabled,
+.btn-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .btn-save {
   display: flex;

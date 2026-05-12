@@ -7,7 +7,7 @@ import LogPage from './views/LogPage.vue'
 import GroupPage from './views/GroupPage.vue'
 import GroupExplorer from './views/GroupExplorer.vue'
 import HostConfig from './views/HostConfig.vue'
-import HttpManager from './utils/request'
+import HttpManager, { hasCachedClientConfig, setCachedClientConfig } from './utils/request'
 
 const routes = [
   { path: '/', component: Login },
@@ -30,19 +30,28 @@ const router = createRouter({
 })
 
 let configState = null
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function loadConfigState() {
   if (configState !== null) {
     return configState
   }
 
-  try {
-    const res = await HttpManager.getNoAuth('/client/config')
-    configState = Boolean((res?.data ?? res)?.configured)
-  } catch {
-    configState = false
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    try {
+      const res = await HttpManager.getNoAuth('/client/config')
+      const data = res?.data ?? res
+      if (data?.configured) {
+        setCachedClientConfig(data)
+      }
+      configState = Boolean(data?.configured)
+      return configState
+    } catch {
+      await sleep(350)
+    }
   }
 
+  configState = hasCachedClientConfig()
   return configState
 }
 

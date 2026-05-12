@@ -13,31 +13,31 @@
         </div>
         <div>
           <div class="brand-name">DataSync</div>
-          <div class="brand-sub">Client Console</div>
+          <div class="brand-sub">客户端控制台</div>
         </div>
       </div>
 
-      <h1>Sign in</h1>
-      <p class="subtitle">Use your DataSync account to continue.</p>
+      <h1>登录</h1>
+      <p class="subtitle">使用你的 DataSync 账号继续。</p>
 
       <form class="auth-form" @submit.prevent="handleLogin">
         <label class="field-group">
-          <span>Email</span>
+          <span>邮箱</span>
           <input
             v-model.trim="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder="请输入邮箱"
             :disabled="isLoading"
             autocomplete="email"
           />
         </label>
 
         <label class="field-group">
-          <span>Password</span>
+          <span>密码</span>
           <input
             v-model="password"
             type="password"
-            placeholder="Password"
+            placeholder="请输入密码"
             :disabled="isLoading"
             autocomplete="current-password"
           />
@@ -46,18 +46,16 @@
         <div v-if="errorMessage" class="error-bar">{{ errorMessage }}</div>
 
         <button :disabled="isLoading" class="ds-btn-primary" type="submit">
-          {{ isLoading ? 'Signing in...' : 'Sign in' }}
+          {{ isLoading ? '登录中...' : '登录' }}
         </button>
       </form>
 
-      <div class="divider"><span>No account yet?</span></div>
+      <div class="divider"><span>还没有账号？</span></div>
 
       <button class="ds-btn-ghost" type="button" @click="$router.push('/register')">
-        Create account
+        注册账号
       </button>
-      <button class="setup-link" type="button" @click="$router.push('/setup')">
-        Server settings
-      </button>
+      <button class="setup-link" type="button" @click="$router.push('/setup')">服务器设置</button>
     </section>
   </main>
 </template>
@@ -76,7 +74,7 @@ const errorMessage = ref('')
 const handleLogin = async () => {
   errorMessage.value = ''
   if (!email.value || !password.value) {
-    errorMessage.value = 'Email and password are required.'
+    errorMessage.value = '请输入邮箱和密码。'
     return
   }
 
@@ -88,7 +86,7 @@ const handleLogin = async () => {
     })
     const data = res?.data ?? res
     if (!data?.refreshToken) {
-      throw new Error('Unexpected login response.')
+      throw new Error('登录响应异常。')
     }
     localStorage.setItem('authToken', data.refreshToken)
     localStorage.setItem(
@@ -102,7 +100,7 @@ const handleLogin = async () => {
     )
     router.push('/dashboard')
   } catch (err) {
-    errorMessage.value = err.data?.message || err.message || 'Sign in failed.'
+    errorMessage.value = err.data?.message || err.message || '登录失败。'
   } finally {
     isLoading.value = false
   }
@@ -137,9 +135,11 @@ const handleLogin = async () => {
   width: min(100%, 420px);
   background: #fff;
   border: 1px solid #e8eaed;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 38px;
-  box-shadow: 0 20px 50px rgba(60, 64, 67, 0.12);
+  box-shadow:
+    0 20px 50px rgba(60, 64, 67, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
 .logo-wrap {
@@ -202,27 +202,34 @@ h1 {
 .field-group span {
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: #5f6368;
 }
 
 input {
   width: 100%;
   min-width: 0;
-  height: 42px;
-  padding: 0 12px;
-  background: #fff;
-  border: 1px solid #dadce0;
+  height: 46px;
+  padding: 0 13px;
+  background: linear-gradient(#ffffff, #fbfdff);
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   color: #202124;
   font-size: 14px;
   outline: none;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.05);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
 }
 
 input:focus {
   border-color: #1a73e8;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(26, 115, 232, 0.12),
+    0 8px 22px rgba(60, 64, 67, 0.08);
 }
 
 input:disabled {
@@ -243,7 +250,7 @@ input:disabled {
 .ds-btn-ghost,
 .setup-link {
   width: 100%;
-  height: 42px;
+  height: 44px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 700;

@@ -13,42 +13,42 @@
         </div>
         <div>
           <div class="brand-name">DataSync</div>
-          <div class="brand-sub">Client Console</div>
+          <div class="brand-sub">客户端控制台</div>
         </div>
       </div>
 
-      <h1>Create account</h1>
-      <p class="subtitle">Register and continue to your dashboard.</p>
+      <h1>注册账号</h1>
+      <p class="subtitle">创建账号后进入 DataSync 控制台。</p>
 
       <form class="auth-form" @submit.prevent="handleRegister">
         <label class="field-group">
-          <span>Name</span>
+          <span>用户名</span>
           <input
             v-model.trim="username"
             type="text"
-            placeholder="Your name"
+            placeholder="请输入用户名"
             :disabled="isLoading"
             autocomplete="name"
           />
         </label>
 
         <label class="field-group">
-          <span>Email</span>
+          <span>邮箱</span>
           <input
             v-model.trim="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder="请输入邮箱"
             :disabled="isLoading"
             autocomplete="email"
           />
         </label>
 
         <label class="field-group">
-          <span>Password</span>
+          <span>密码</span>
           <input
             v-model="password"
             type="password"
-            placeholder="At least 6 characters"
+            placeholder="至少 6 位字符"
             :disabled="isLoading"
             autocomplete="new-password"
           />
@@ -58,12 +58,12 @@
         <div v-if="successMessage" class="success-bar">{{ successMessage }}</div>
 
         <button :disabled="isLoading" class="ds-btn-primary" type="submit">
-          {{ isLoading ? 'Creating...' : 'Create account' }}
+          {{ isLoading ? '注册中...' : '注册' }}
         </button>
       </form>
 
-      <div class="divider"><span>Already have an account?</span></div>
-      <button class="ds-btn-ghost" type="button" @click="$router.push('/')">Back to sign in</button>
+      <div class="divider"><span>已有账号？</span></div>
+      <button class="ds-btn-ghost" type="button" @click="$router.push('/')">返回登录</button>
     </section>
   </main>
 </template>
@@ -85,11 +85,11 @@ const handleRegister = async () => {
   errorMessage.value = ''
   successMessage.value = ''
   if (!username.value || !email.value || !password.value) {
-    errorMessage.value = 'All fields are required.'
+    errorMessage.value = '请填写用户名、邮箱和密码。'
     return
   }
   if (password.value.length < 6) {
-    errorMessage.value = 'Password must contain at least 6 characters.'
+    errorMessage.value = '密码至少需要 6 位字符。'
     return
   }
 
@@ -103,9 +103,9 @@ const handleRegister = async () => {
     const data = res?.data ?? res
     const token = data?.token || data?.refreshToken
     if (!token) {
-      throw new Error('Unexpected register response.')
+      throw new Error('注册响应异常。')
     }
-    successMessage.value = 'Account created. Opening dashboard...'
+    successMessage.value = '注册成功，正在进入控制台...'
     localStorage.setItem('authToken', token)
     localStorage.setItem(
       'userInfo',
@@ -118,7 +118,7 @@ const handleRegister = async () => {
     )
     setTimeout(() => router.push('/dashboard'), 500)
   } catch (err) {
-    errorMessage.value = err.data?.message || err.message || 'Registration failed.'
+    errorMessage.value = err.data?.message || err.message || '注册失败。'
   } finally {
     isLoading.value = false
   }
@@ -153,9 +153,11 @@ const handleRegister = async () => {
   width: min(100%, 420px);
   background: #fff;
   border: 1px solid #e8eaed;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 38px;
-  box-shadow: 0 20px 50px rgba(60, 64, 67, 0.12);
+  box-shadow:
+    0 20px 50px rgba(60, 64, 67, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
 .logo-wrap {
@@ -218,27 +220,34 @@ h1 {
 .field-group span {
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: #5f6368;
 }
 
 input {
   width: 100%;
   min-width: 0;
-  height: 42px;
-  padding: 0 12px;
-  background: #fff;
-  border: 1px solid #dadce0;
+  height: 46px;
+  padding: 0 13px;
+  background: linear-gradient(#ffffff, #fbfdff);
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   color: #202124;
   font-size: 14px;
   outline: none;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.05);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
 }
 
 input:focus {
   border-color: #1a73e8;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(26, 115, 232, 0.12),
+    0 8px 22px rgba(60, 64, 67, 0.08);
 }
 
 .error-bar,
@@ -263,7 +272,7 @@ input:focus {
 .ds-btn-primary,
 .ds-btn-ghost {
   width: 100%;
-  height: 42px;
+  height: 44px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 700;

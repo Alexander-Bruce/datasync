@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 export const LOCAL_API_BASE_URL = 'http://127.0.0.1:8092'
+export const CLIENT_CONFIG_CACHE_KEY = 'clientConfig'
 
 const service = axios.create({
   baseURL: LOCAL_API_BASE_URL,
@@ -69,6 +70,24 @@ class HttpManager {
   static async getNoAuth(url) {
     return service({ url, method: 'get', needToken: false })
   }
+}
+
+export function getCachedClientConfig() {
+  try {
+    return JSON.parse(localStorage.getItem(CLIENT_CONFIG_CACHE_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+
+export function setCachedClientConfig(config) {
+  if (!config) return
+  localStorage.setItem(CLIENT_CONFIG_CACHE_KEY, JSON.stringify(config))
+}
+
+export function hasCachedClientConfig() {
+  const config = getCachedClientConfig()
+  return Boolean(config?.configured && config?.serverBaseUrl && config?.syncHost)
 }
 
 export default HttpManager

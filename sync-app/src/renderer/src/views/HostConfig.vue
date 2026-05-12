@@ -13,16 +13,16 @@
         </div>
         <div>
           <div class="brand-name">DataSync</div>
-          <div class="brand-subtitle">Client activation</div>
+          <div class="brand-subtitle">客户端激活</div>
         </div>
       </div>
 
-      <h1>Connect your server</h1>
-      <p class="intro">Set the API endpoint and sync socket before signing in.</p>
+      <h1>连接服务器</h1>
+      <p class="intro">首次使用前配置服务端地址，保存后会写入本机。</p>
 
       <form class="setup-form" @submit.prevent="saveConfig">
         <label class="field">
-          <span>Server API URL</span>
+          <span>服务端 API 地址</span>
           <input
             v-model.trim="form.serverBaseUrl"
             type="text"
@@ -33,7 +33,7 @@
 
         <div class="field-grid">
           <label class="field">
-            <span>Sync host</span>
+            <span>同步主机</span>
             <input
               v-model.trim="form.syncHost"
               type="text"
@@ -43,7 +43,7 @@
           </label>
 
           <label class="field">
-            <span>Sync port</span>
+            <span>同步端口</span>
             <input v-model.number="form.syncPort" type="number" min="1" max="65535" />
           </label>
         </div>
@@ -54,10 +54,10 @@
 
         <div class="actions">
           <button type="button" class="btn-secondary" :disabled="loading" @click="testConfig">
-            Test
+            测试连接
           </button>
           <button type="submit" class="btn-primary" :disabled="loading">
-            {{ loading ? 'Saving...' : 'Save and continue' }}
+            {{ loading ? '保存中...' : '保存并继续' }}
           </button>
         </div>
       </form>
@@ -68,7 +68,11 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import HttpManager, { LOCAL_API_BASE_URL } from '../utils/request'
+import HttpManager, {
+  LOCAL_API_BASE_URL,
+  getCachedClientConfig,
+  setCachedClientConfig
+} from '../utils/request'
 import { clearConfigStateCache } from '../router'
 
 const router = useRouter()
@@ -82,27 +86,36 @@ const form = reactive({
   syncPort: 8443
 })
 
-onMounted(loadConfig)
+onMounted(() => {
+  fillFromConfig(getCachedClientConfig())
+  loadConfig()
+})
+
+function fillFromConfig(config) {
+  if (!config) return
+  form.serverBaseUrl = config.serverBaseUrl || form.serverBaseUrl
+  form.syncHost = config.syncHost || form.syncHost
+  form.syncPort = config.syncPort || form.syncPort || 8443
+}
 
 async function loadConfig() {
   try {
     const res = await HttpManager.getNoAuth('/client/config')
     const data = res?.data ?? res
-    form.serverBaseUrl = data?.serverBaseUrl || ''
-    form.syncHost = data?.syncHost || ''
-    form.syncPort = data?.syncPort || 8443
+    fillFromConfig(data)
+    if (data?.configured) setCachedClientConfig(data)
   } catch {
     statusType.value = 'error'
-    message.value = `Local client service is not responding at ${LOCAL_API_BASE_URL}.`
+    message.value = `本地客户端服务暂未响应：${LOCAL_API_BASE_URL}`
   }
 }
 
 async function testConfig() {
-  await submit('/client/config/test', 'Server connection OK.')
+  await submit('/client/config/test', '服务器连接正常。')
 }
 
 async function saveConfig() {
-  const saved = await submit('/client/config', 'Configuration saved.')
+  const saved = await submit('/client/config', '配置已保存到本机。', true)
   if (!saved) return
 
   clearConfigStateCache()
@@ -110,7 +123,7 @@ async function saveConfig() {
   router.push(token ? '/dashboard' : '/')
 }
 
-async function submit(url, successText) {
+async function submit(url, successText, persist = false) {
   message.value = ''
   try {
     loading.value = true
@@ -120,15 +133,14 @@ async function submit(url, successText) {
       syncPort: Number(form.syncPort || 8443)
     })
     const data = res?.data ?? res
-    form.serverBaseUrl = data?.serverBaseUrl || form.serverBaseUrl
-    form.syncHost = data?.syncHost || form.syncHost
-    form.syncPort = data?.syncPort || form.syncPort
+    fillFromConfig(data)
+    if (persist && data?.configured) setCachedClientConfig(data)
     statusType.value = 'success'
     message.value = successText
     return true
   } catch (err) {
     statusType.value = 'error'
-    message.value = err.data?.message || err.message || 'Configuration failed.'
+    message.value = err.data?.message || err.message || '配置失败。'
     return false
   } finally {
     loading.value = false
@@ -165,8 +177,10 @@ async function submit(url, successText) {
   padding: 36px;
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
 .brand-row {
@@ -237,19 +251,27 @@ h1 {
 input {
   width: 100%;
   min-width: 0;
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid #d1d5db;
+  height: 46px;
+  padding: 0 13px;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   outline: none;
   font-size: 14px;
   color: #111827;
-  background: #fff;
+  background: linear-gradient(#ffffff, #fbfdff);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
 }
 
 input:focus {
   border-color: #0f62fe;
-  box-shadow: 0 0 0 3px rgba(15, 98, 254, 0.13);
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(15, 98, 254, 0.13),
+    0 8px 22px rgba(15, 23, 42, 0.08);
 }
 
 .field-grid {
