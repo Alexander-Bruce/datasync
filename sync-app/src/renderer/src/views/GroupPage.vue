@@ -532,10 +532,7 @@
                 placeholder="输入或选择同步任务文件夹..."
                 :disabled="opLoading[`${group.id}_addScope`]"
                 @keyup.enter="addScope(group)"
-                @input="
-                  showScopeDropdown[group.id] = true
-                  selectedScopeTasks[group.id] = null
-                "
+                @input="onScopeInput(group.id)"
                 @focus="showScopeDropdown[group.id] = true"
                 @blur="hideScopeDropdownDelayed(group.id)"
               />
@@ -822,6 +819,11 @@ const hideScopeDropdownDelayed = (groupId) => {
   setTimeout(() => {
     showScopeDropdown[groupId] = false
   }, 200)
+}
+
+const onScopeInput = (groupId) => {
+  showScopeDropdown[groupId] = true
+  selectedScopeTasks[groupId] = null
 }
 
 const selectScope = (group, task) => {

@@ -1,8 +1,9 @@
 import axios from 'axios'
-import router from '../router'
+
+export const LOCAL_API_BASE_URL = 'http://127.0.0.1:8092'
 
 const service = axios.create({
-  baseURL: 'http://127.0.0.1:8092',
+  baseURL: LOCAL_API_BASE_URL,
   timeout: 10000
 })
 
@@ -10,7 +11,7 @@ service.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken')
     if (config.needToken !== false && token) {
-      config.headers['Authorization'] = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },
@@ -32,7 +33,9 @@ service.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('authToken')
       localStorage.removeItem('userInfo')
-      router.push('/')
+      if (window.location.hash !== '#/setup') {
+        window.location.hash = '#/'
+      }
     }
     return Promise.reject(error)
   }
@@ -61,6 +64,10 @@ class HttpManager {
 
   static async get(url) {
     return service({ url, method: 'get', needToken: true })
+  }
+
+  static async getNoAuth(url) {
+    return service({ url, method: 'get', needToken: false })
   }
 }
 

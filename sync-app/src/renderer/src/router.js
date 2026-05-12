@@ -6,9 +6,12 @@ import FileExplorer from './views/FileExplorer.vue'
 import LogPage from './views/LogPage.vue'
 import GroupPage from './views/GroupPage.vue'
 import GroupExplorer from './views/GroupExplorer.vue'
+import HostConfig from './views/HostConfig.vue'
+import HttpManager from './utils/request'
 
 const routes = [
   { path: '/', component: Login },
+  { path: '/setup', component: HostConfig },
   { path: '/register', component: Register },
   { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/files/:fileId', component: FileExplorer, meta: { requiresAuth: true } },
@@ -26,22 +29,46 @@ const router = createRouter({
   routes
 })
 
-// ▼▼▼ 新增：路由守卫 ▼▼▼
-router.beforeEach((to, from, next) => {
+let configState = null
+
+async function loadConfigState() {
+  if (configState !== null) {
+    return configState
+  }
+
+  try {
+    const res = await HttpManager.getNoAuth('/client/config')
+    configState = Boolean((res?.data ?? res)?.configured)
+  } catch {
+    configState = false
+  }
+
+  return configState
+}
+
+export function clearConfigStateCache() {
+  configState = null
+}
+
+router.beforeEach(async (to) => {
   const token = localStorage.getItem('authToken')
 
-  // 1. 如果用户要去 Dashboard，但没有 Token -> 踢回登录页
-  if (to.path === '/dashboard' && !token) {
-    next('/')
+  if (to.path !== '/setup') {
+    const configured = await loadConfigState()
+    if (!configured) {
+      return '/setup'
+    }
   }
-  // 2. 如果用户要去登录页，但其实已经有 Token 了 -> 直接去 Dashboard (自动登录)
-  else if (to.path === '/' && token) {
-    next('/dashboard')
+
+  if ((to.path === '/' || to.path === '/register') && token) {
+    return '/dashboard'
   }
-  // 3. 其他情况正常放行
-  else {
-    next()
+
+  if (to.meta.requiresAuth && !token) {
+    return '/'
   }
+
+  return true
 })
 
 export default router

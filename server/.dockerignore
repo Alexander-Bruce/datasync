@@ -1,0 +1,9 @@
+target/
+log/
+logs/
+db/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+.mvn/timing.properties

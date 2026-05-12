@@ -1,6 +1,8 @@
 package backend.util;
 
+import backend.config.ClientConfigStore;
 import backend.exception.model.BaseException;
+import backend.model.ClientConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -9,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class HttpJsonClient {
@@ -17,8 +20,6 @@ public class HttpJsonClient {
       HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  private static final String basePath = "http://localhost:8090/";
 
   private HttpJsonClient() {
     // 私有构造函数，防止实例化
@@ -39,7 +40,7 @@ public class HttpJsonClient {
     try {
       String json = OBJECT_MAPPER.writeValueAsString(body);
 
-      url = basePath + url;
+      url = resolveUrl(url);
 
       HttpRequest.Builder builder =
           HttpRequest.newBuilder()
@@ -90,7 +91,7 @@ public class HttpJsonClient {
   public static byte[] downloadBytes(String url, Object body) {
     try {
       String json = OBJECT_MAPPER.writeValueAsString(body);
-      String fullUrl = basePath + url;
+      String fullUrl = resolveUrl(url);
 
       HttpClient fileClient =
           HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
@@ -114,5 +115,46 @@ public class HttpJsonClient {
     } catch (IOException | InterruptedException e) {
       throw new RuntimeException("下载文件异常: " + e.getMessage(), e);
     }
+  }
+
+  public static Map<String, Object> testConnection(ClientConfig config) {
+    ClientConfig normalized = ClientConfigStore.normalize(config, true);
+    String testUrl = joinUrl(normalized.getServerBaseUrl(), "/");
+
+    try {
+      HttpRequest request =
+          HttpRequest.newBuilder()
+              .uri(URI.create(testUrl))
+              .timeout(Duration.ofSeconds(10))
+              .GET()
+              .build();
+
+      HttpResponse<String> response =
+          HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+      Map<String, Object> result = new LinkedHashMap<>();
+      result.put("serverBaseUrl", normalized.getServerBaseUrl());
+      result.put("syncHost", normalized.getSyncHost());
+      result.put("syncPort", normalized.getSyncPort());
+      result.put("httpStatus", response.statusCode());
+      result.put("reachable", true);
+      return result;
+    } catch (IOException | InterruptedException ex) {
+      if (ex instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      throw new BaseException("Remote server is not reachable: " + ex.getMessage(), 424);
+    }
+  }
+
+  private static String resolveUrl(String url) {
+    ClientConfig config = ClientConfigStore.requireConfigured();
+    return joinUrl(config.getServerBaseUrl(), url);
+  }
+
+  private static String joinUrl(String baseUrl, String url) {
+    String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+    String path = url.startsWith("/") ? url : "/" + url;
+    return base + path;
   }
 }

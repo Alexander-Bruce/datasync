@@ -692,7 +692,7 @@
     />
 
     <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
+      <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="cancelDeleteTask">
         <div class="confirm-panel">
           <div class="confirm-icon">
             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -710,16 +710,7 @@
           </p>
           <p v-if="deleteError" class="delete-error-msg">{{ deleteError }}</p>
           <div class="confirm-actions">
-            <button
-              class="btn-secondary"
-              type="button"
-              @click="
-                showDeleteConfirm = false
-                deleteError = ''
-              "
-            >
-              取消
-            </button>
+            <button class="btn-secondary" type="button" @click="cancelDeleteTask">取消</button>
             <button class="btn-danger" type="button" :disabled="isDeleting" @click="doDeleteTask">
               {{ isDeleting ? '删除中...' : '确认删除' }}
             </button>
@@ -1059,6 +1050,11 @@ const confirmDeleteTask = (task) => {
   deleteTargetTask.value = task
   deleteError.value = ''
   showDeleteConfirm.value = true
+}
+
+const cancelDeleteTask = () => {
+  showDeleteConfirm.value = false
+  deleteError.value = ''
 }
 
 const doDeleteTask = async () => {

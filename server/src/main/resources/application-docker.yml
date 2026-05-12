@@ -1,0 +1,49 @@
+application:
+  datasource:
+    mysql:
+      url: ${MYSQL_URL:jdbc:mysql://119.91.105.168:3306/datasync}
+      username: ${MYSQL_USERNAME:root}
+      password: ${MYSQL_PASSWORD:}
+
+    sqlite:
+      url: ${SQLITE_URL:jdbc:sqlite:db/sqlite.db?journal_mode=WAL&busy_timeout=5000}
+
+  redis:
+    master:
+      host: ${REDIS_MASTER_HOST:47.79.19.213}
+      port: ${REDIS_MASTER_PORT:6379}
+      password: ${REDIS_MASTER_PASSWORD:}
+    slave:
+      host: ${REDIS_SLAVE_HOST:47.79.19.213}
+      port: ${REDIS_SLAVE_PORT:6380}
+      password: ${REDIS_SLAVE_PASSWORD:}
+
+  aws:
+    s3:
+      accesskey: ${AWS_S3_ACCESSKEY:}
+      secretkey: ${AWS_S3_SECRETKEY:}
+      region: ${AWS_S3_REGION:auto}
+      endpoint: ${AWS_S3_ENDPOINT:http://localhost}
+      bucket: ${AWS_S3_BUCKET:datasync}
+      path-style-access: ${AWS_S3_PATH_STYLE_ACCESS:true}
+
+  netty:
+    server:
+      port: ${NETTY_SERVER_PORT:8443}
+      basePath: ${NETTY_BASE_PATH:/data/sync}
+    client:
+      port: ${NETTY_CLIENT_PORT:8443}
+      host: ${NETTY_CLIENT_HOST:localhost}
+
+  jwt:
+    secretkey: ${JWT_SECRETKEY:}
+    freshTokenExpiration: ${JWT_FRESH_TOKEN_EXPIRATION:2592000000}
+    accessTokenExpiration: ${JWT_ACCESS_TOKEN_EXPIRATION:25920000000}
+    token-name: ${JWT_TOKEN_NAME:Authorization}
+    uid: ${JWT_UID:uid}
+    role: ${JWT_ROLE:role}
+
+  mybatis:
+    type-aliases-package: backend.model.entity
+    configuration:
+      log-impl: ${MYBATIS_LOG_IMPL:org.apache.ibatis.logging.stdout.StdOutImpl}

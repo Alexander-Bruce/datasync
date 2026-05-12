@@ -1,5 +1,7 @@
 package backend.sync.client;
 
+import backend.config.ClientConfigStore;
+import backend.model.ClientConfig;
 import backend.util.SyncStyle;
 import dataSync.CDCManager;
 import dataSync.FastCDC.FastCDCManager;
@@ -19,17 +21,10 @@ import jakarta.annotation.PreDestroy;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class NettySyncClient {
-
-  @Value("${spring.netty.client.port}")
-  private int port;
-
-  @Value("${spring.netty.client.host}")
-  private String host;
 
   private EventLoopGroup group;
 
@@ -67,8 +62,9 @@ public class NettySyncClient {
 
     Channel channel = null;
     try {
+      ClientConfig config = ClientConfigStore.requireConfigured();
       // 连接服务端
-      ChannelFuture f = b.connect(host, port).sync();
+      ChannelFuture f = b.connect(config.getSyncHost(), config.getSyncPort()).sync();
       channel = f.channel();
 
       // 2. 循环处理文件，共用此 Channel

@@ -29,7 +29,7 @@ spring:
     slave:
       host: ${application.redis.slave.host}
       port: ${application.redis.slave.port}
-      password: ${application.redis.slave.host}
+      password: ${application.redis.slave.password}
 
   aws:
     s3:

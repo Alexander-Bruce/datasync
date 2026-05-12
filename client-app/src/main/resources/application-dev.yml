@@ -9,7 +9,7 @@ application:
       basePath: /path/to/local/sync/folder   # local root directory for synced files
     client:
       port: 8443
-      host: xxxxxx            # your server IP or hostname
+      host: localhost         # fallback only; runtime setup writes the actual server host
 
   jwt:
     secretkey: xxxxxx         # must be identical to the server's JWT secretkey
