@@ -396,14 +396,13 @@ public class FileServiceImpl implements FileService {
       s.storagePath = normalized.isEmpty() ? email : scopePrefix + normalized;
     }
 
-    fileList =
-        HttpJsonClient.postForData(
-            "server/file/compare",
-            Map.of(
-                "list", fileList,
-                "path", path,
-                "email", email),
-            new TypeReference<>() {});
+    HttpJsonClient.postForData(
+        "server/file/compare",
+        Map.of(
+            "list", fileList,
+            "path", path,
+            "email", email),
+        new TypeReference<List<SyncStyle>>() {});
 
     if (fileList.isEmpty()) return true;
 
