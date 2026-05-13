@@ -34,3 +34,7 @@ Default ports:
 
 - HTTP: `7860`
 - Netty sync: `8080`
+
+Hugging Face Spaces only allow outbound requests to ports `80`, `443`, and `8080`.
+External MySQL/Redis endpoints on ports such as `3306`, `6379`, or `6380` will not be reachable
+from the Space unless they are proxied or exposed through an allowed port.
