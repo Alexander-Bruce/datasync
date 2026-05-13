@@ -36,7 +36,7 @@ application:
       host: ${NETTY_CLIENT_HOST:localhost}
 
   jwt:
-    secretkey: ${JWT_SECRETKEY:}
+    secretkey: ${JWT_SECRETKEY:RGF0YVN5bmNQcmV2aWV3RGVmYXVsdEp3dFNlY3JldEtleUNoYW5nZU1lMjAyNg==}
     freshTokenExpiration: ${JWT_FRESH_TOKEN_EXPIRATION:2592000000}
     accessTokenExpiration: ${JWT_ACCESS_TOKEN_EXPIRATION:25920000000}
     token-name: ${JWT_TOKEN_NAME:Authorization}
