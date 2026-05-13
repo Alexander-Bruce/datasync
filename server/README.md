@@ -8,14 +8,13 @@ app_port: 7860
 
 Docker Space deployment for the DataSync Spring Boot server.
 
-The Docker profile reads runtime configuration from environment variables. If database secrets are
-missing, login and signup requests fail with `CannotGetJdbcConnectionException`.
+The Docker image runs the Spring Boot server and an embedded MySQL-compatible MariaDB process in
+the same container. The Docker profile defaults to the local database at
+`jdbc:mysql://127.0.0.1:3306/datasync`.
 
 Set the following Hugging Face Space secrets before rebuilding:
 
 - `MYSQL_PASSWORD`
-- `REDIS_MASTER_PASSWORD`
-- `REDIS_SLAVE_PASSWORD`
 - `JWT_SECRETKEY`
 - `AWS_S3_ACCESSKEY`
 - `AWS_S3_SECRETKEY`
@@ -34,7 +33,8 @@ Default ports:
 
 - HTTP: `7860`
 - Netty sync: `8080`
+- Sync storage path: `/sync`
 
-Hugging Face Spaces only allow outbound requests to ports `80`, `443`, and `8080`.
-External MySQL/Redis endpoints on ports such as `3306`, `6379`, or `6380` will not be reachable
-from the Space unless they are proxied or exposed through an allowed port.
+Redis is not packaged because the current server code path does not use it. If `MYSQL_URL` is
+overridden to an external database, remember that Hugging Face Spaces only allow outbound requests
+to ports `80`, `443`, and `8080`.
