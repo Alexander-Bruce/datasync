@@ -72,8 +72,8 @@ DataSync consists of three sub-modules:
 
 - **CDC Incremental Sync**: Supports FastCDC, FlipCDC, QuickCDC, and RabinCDC — only changed chunks are transferred
 - **Bidirectional Sync**: Upload (local → server) and download (server → local, direct overwrite)
-- **Encrypted Transfer**: AES-256-GCM data encryption + RSA-2048-OAEP key exchange
-- **High-Performance Netty Transport**: Asynchronous socket communication via Netty
+- **HTTPS File Sync**: Uploads and downloads file content through the server HTTP API, so it works behind Hugging Face Spaces' HTTPS proxy
+- **Legacy Netty Transport**: Netty sync classes remain available for self-hosted deployments that expose raw TCP ports
 - **Local Metadata**: SQLite on the client side for managing file trees and sync state
 - **Scheduled Sync**: Cron expression support for automated sync policies
 - **Group Sharing**: Add members by email, share sync task folders to groups; members can browse and pull down
@@ -95,14 +95,14 @@ DataSync consists of three sub-modules:
 ┌──────────────────────────────────────────────────────────────┐
 │                 client-app (Spring Boot)                      │
 │  SQLite │ FileService │ SyncController │ GroupController      │
-│  NettyClientManager → NettySyncClient                        │
+│  HTTP file upload/download │ legacy Netty client              │
 └──────┬──────────────────────────────────────┬────────────────┘
-       │ REST (HTTP, port 8090)               │ Netty (port 8080)
+       │ REST + file content (HTTP, port 8090)
        ▼                                      ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                   server (Spring Boot)                        │
 │  MySQL │ FileService │ ServerSyncController │ GroupController │
-│  NettySyncServer ← SyncServerHandler                         │
+│  HTTP file storage │ legacy Netty server                      │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -113,8 +113,8 @@ For full details see [ARCHITECTURE.md](./ARCHITECTURE.md).
 1. Frontend triggers `POST /client/sync/upload`
 2. Client chunks local files using the selected CDC algorithm and computes SHA-256 hashes
 3. Client calls `POST /server/file/compare`; server returns the list of delta chunks
-4. Client sends delta chunks (AES-GCM encrypted) to the server via Netty
-5. Server reconstructs each file (temp file → atomic rename) and removes deleted files
+4. Client uploads changed files to `POST /server/file/upload` over the configured server HTTP URL
+5. Server writes each file through a `.part` temp file and atomic rename, then removes deleted files during compare
 6. Client updates local SQLite `is_sync = true`
 
 **Download Sync Flow**
@@ -136,7 +136,7 @@ For full details see [ARCHITECTURE.md](./ARCHITECTURE.md).
 | Java        | 21       | Programming language        |
 | Spring Boot | 3.4.2    | Web framework               |
 | MyBatis     | 3.0.4    | ORM / SQL mapping           |
-| Netty       | —        | High-performance async I/O  |
+| Netty       | —        | Legacy raw TCP sync transport for self-hosted deployments |
 | JJWT        | 0.12.5   | JWT authentication          |
 | MySQL       | 8.0+     | Server persistent storage   |
 | SQLite      | —        | Client local metadata       |
@@ -239,7 +239,7 @@ cp server/src/main/resources/application-dev.yml.example \
 
 Edit `server/src/main/resources/application-dev.yml` — see [Configuration Reference](#configuration-reference) below.
 
-**Generate RSA keys for encrypted Netty transport:**
+**Optional: generate RSA keys for legacy Netty transport:**
 
 ```bash
 mkdir -p server/conf
@@ -255,7 +255,7 @@ cd server
 mvnw.cmd spring-boot:run    # Windows
 ```
 
-The server starts on **port 8090** (HTTP) and **port 8080** (Netty, configurable).
+The server starts on **port 8090** for HTTP APIs. Legacy Netty defaults to **port 8080** when used in a self-hosted deployment.
 
 ---
 
@@ -335,7 +335,7 @@ application:
 
   netty:
     server:
-      port: 8080                         # Netty listening port (must match client)
+      port: 8080                         # Legacy Netty port for self-hosted TCP sync
       basePath: /path/to/server/storage  # Where synced files are stored on server
 
   jwt:
@@ -362,10 +362,10 @@ application:
 
   netty:
     server:
-      port: 8080                           # Must match server netty.server.port
+      port: 8080                           # Legacy Netty port for self-hosted TCP sync
       basePath: /path/to/local/sync/root   # Local root for synced files
     client:
-      port: 8080                           # Must match server netty.server.port
+      port: 8080                           # Legacy Netty port for self-hosted TCP sync
       host: <server_ip_or_hostname>        # Address of the server
 
   jwt:
@@ -393,7 +393,7 @@ application:
 - **Create task**: Choose local path, CDC algorithm, remote host, and schedule
 - **Edit task**: Update any config; path changes trigger automatic file tree rescan
 - **Delete task**: Clears File + SubFile records in SQLite; blocked if the folder is shared to a group with active members
-- **Upload sync**: CDC chunking → delta comparison → Netty incremental transfer
+- **Upload sync**: CDC chunking → delta comparison → HTTPS file upload
 - **Download sync**: Pulls all files from the server → overwrites local copies
 
 ### File Browser (FileExplorer)

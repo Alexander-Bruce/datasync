@@ -4,7 +4,9 @@ import backend.service.FileService;
 import backend.util.SyncStyle;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -225,6 +227,82 @@ public class FileServiceImpl implements FileService {
       return Files.readAllBytes(target.toPath());
     } catch (IOException e) {
       throw new RuntimeException("读取文件失败: " + target.getAbsolutePath() + " - " + e.getMessage(), e);
+    }
+  }
+
+  @Override
+  public long uploadFile(String storagePath, String fileName, InputStream inputStream) {
+    String safeStoragePath = normalizeStoragePath(storagePath);
+    if (fileName == null || fileName.isBlank()) {
+      throw new SecurityException("fileName is required");
+    }
+    if (fileName.contains("/")
+        || fileName.contains("\\")
+        || ".".equals(fileName)
+        || "..".equals(fileName)) {
+      throw new SecurityException("Illegal fileName: " + fileName);
+    }
+
+    File serverBase = new File(basePath);
+    File targetDir = new File(serverBase, safeStoragePath);
+    File target = new File(targetDir, fileName);
+    File temp = new File(targetDir, fileName + ".part");
+
+    try {
+      String canonicalBase = serverBase.getCanonicalPath();
+      String canonicalTargetDir = targetDir.getCanonicalPath();
+      String canonicalTarget = target.getCanonicalPath();
+
+      if (!isInside(canonicalBase, canonicalTargetDir)
+          || !isInside(canonicalTargetDir, canonicalTarget)) {
+        throw new SecurityException("Illegal upload path: " + safeStoragePath + "/" + fileName);
+      }
+
+      Files.createDirectories(targetDir.toPath());
+      long bytes;
+      try (inputStream) {
+        bytes = Files.copy(inputStream, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      }
+      moveUploadedFile(temp, target);
+      return bytes;
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Upload file failed: " + target.getAbsolutePath() + " - " + e.getMessage(), e);
+    }
+  }
+
+  private String normalizeStoragePath(String storagePath) {
+    if (storagePath == null || storagePath.isBlank()) {
+      throw new SecurityException("storagePath is required");
+    }
+
+    String normalized = storagePath.replace("\\", "/").trim();
+    if (normalized.startsWith("/") || normalized.contains("\u0000")) {
+      throw new SecurityException("Illegal storagePath: " + storagePath);
+    }
+
+    for (String segment : normalized.split("/")) {
+      if (segment.isBlank() || ".".equals(segment) || "..".equals(segment)) {
+        throw new SecurityException("Illegal storagePath: " + storagePath);
+      }
+    }
+    return normalized;
+  }
+
+  private boolean isInside(String canonicalBase, String canonicalTarget) {
+    return canonicalTarget.equals(canonicalBase)
+        || canonicalTarget.startsWith(canonicalBase + File.separator);
+  }
+
+  private void moveUploadedFile(File temp, File target) throws IOException {
+    try {
+      Files.move(
+          temp.toPath(),
+          target.toPath(),
+          StandardCopyOption.REPLACE_EXISTING,
+          StandardCopyOption.ATOMIC_MOVE);
+    } catch (IOException atomicMoveFailed) {
+      Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
   }
 

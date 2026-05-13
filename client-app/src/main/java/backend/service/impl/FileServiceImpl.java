@@ -7,7 +7,6 @@ import backend.mapper.sqlite.UserMapper;
 import backend.model.entity.SubFile;
 import backend.model.entity.User;
 import backend.service.FileService;
-import backend.sync.NettyClientManager;
 import backend.util.HttpJsonClient;
 import backend.util.SyncStyle;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -40,8 +39,6 @@ public class FileServiceImpl implements FileService {
   private static final String DUPLICATE_TASK_ALIAS_MESSAGE =
       "\u4efb\u52a1\u540d\u79f0\u5df2\u5b58\u5728\uff0c\u8bf7\u66f4\u6362\u4e00\u4e2a\u540d\u79f0";
   private static final String TASK_NOT_FOUND_MESSAGE = "\u540c\u6b65\u4efb\u52a1\u4e0d\u5b58\u5728";
-
-  @Autowired public NettyClientManager client;
 
   @Autowired public UserMapper userMapper;
 
@@ -410,7 +407,47 @@ public class FileServiceImpl implements FileService {
 
     if (fileList.isEmpty()) return true;
 
-    return client.offer(fileList);
+    return uploadFilesOverHttp(fileList);
+  }
+
+  private boolean uploadFilesOverHttp(List<SyncStyle> fileList) {
+    for (SyncStyle style : fileList) {
+      if (style == null || style.file == null || !style.file.exists() || !style.file.isFile()) {
+        continue;
+      }
+
+      try {
+        HttpJsonClient.uploadFile(
+            "server/file/upload",
+            style.file,
+            Map.of(
+                "storagePath",
+                normalizeStoragePath(style.storagePath),
+                "fileName",
+                style.file.getName()));
+      } catch (RuntimeException e) {
+        logger.warning(
+            "HTTP upload failed: " + style.file.getAbsolutePath() + " - " + e.getMessage());
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private String normalizeStoragePath(String storagePath) {
+    String normalized = storagePath == null ? "" : storagePath.replace("\\", "/").trim();
+    while (normalized.startsWith("/")) {
+      normalized = normalized.substring(1);
+    }
+    if (normalized.isBlank()) {
+      throw new BaseException("Remote storage path is empty.", 400);
+    }
+    for (String segment : normalized.split("/")) {
+      if (segment.isBlank() || ".".equals(segment) || "..".equals(segment)) {
+        throw new BaseException("Remote storage path is invalid.", 400);
+      }
+    }
+    return normalized;
   }
 
   public Boolean addFiles(String path, String email) {

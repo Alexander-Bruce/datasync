@@ -1,6 +1,7 @@
 package backend.service;
 
 import backend.util.SyncStyle;
+import java.io.InputStream;
 import java.util.List;
 
 public interface FileService {
@@ -23,4 +24,6 @@ public interface FileService {
    * @return 文件字节数组
    */
   byte[] downloadFile(String scopeName, String relativePath);
+
+  long uploadFile(String storagePath, String fileName, InputStream inputStream);
 }

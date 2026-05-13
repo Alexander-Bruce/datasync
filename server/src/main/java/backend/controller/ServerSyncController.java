@@ -6,6 +6,8 @@ import backend.util.ResultEntity;
 import backend.util.SyncStyle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -82,5 +85,15 @@ public class ServerSyncController {
     return ResponseEntity.ok()
         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
         .body(content);
+  }
+
+  @PostMapping(value = "/upload", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+  public ResponseEntity<ResultEntity<Object>> uploadSingleFile(
+      @RequestParam String storagePath, @RequestParam String fileName, HttpServletRequest request)
+      throws IOException {
+
+    long bytes = fileService.uploadFile(storagePath, fileName, request.getInputStream());
+
+    return ResultEntity.success(200, "File uploaded successfully", Map.of("bytes", bytes));
   }
 }

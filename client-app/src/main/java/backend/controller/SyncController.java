@@ -1,5 +1,6 @@
 package backend.controller;
 
+import backend.exception.model.BaseException;
 import backend.service.FileService;
 import backend.util.ResultEntity;
 import java.util.Map;
@@ -19,19 +20,23 @@ public class SyncController {
   @PostMapping("/upload")
   public ResponseEntity<ResultEntity<Object>> uploadFile(@RequestBody Map<String, String> map) {
 
-    return ResultEntity.success(
-        200,
-        "File sync successfully",
-        fileService.upload(parseFileId(map), map.get("path"), map.get("email")));
+    boolean uploaded = fileService.upload(parseFileId(map), map.get("path"), map.get("email"));
+    if (!uploaded) {
+      throw new BaseException("File sync failed", 500);
+    }
+
+    return ResultEntity.success(200, "File sync successfully", true);
   }
 
   @PostMapping("/download")
   public ResponseEntity<ResultEntity<Object>> downloadFile(@RequestBody Map<String, String> map) {
 
-    return ResultEntity.success(
-        200,
-        "File sync successfully",
-        fileService.download(parseFileId(map), map.get("path"), map.get("email")));
+    boolean downloaded = fileService.download(parseFileId(map), map.get("path"), map.get("email"));
+    if (!downloaded) {
+      throw new BaseException("File sync failed", 500);
+    }
+
+    return ResultEntity.success(200, "File sync successfully", true);
   }
 
   @PostMapping("/update")

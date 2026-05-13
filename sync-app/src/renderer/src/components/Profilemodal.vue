@@ -106,6 +106,9 @@
           <h4>服务器配置</h4>
           <span>修改后会保存到本机，下次启动继续使用</span>
         </div>
+        <p class="config-note">
+          Hugging Face Space 上传下载只使用服务端 API 地址；Netty 主机和端口仅用于自托管 TCP 同步。
+        </p>
         <div class="form-grid config-grid">
           <div class="field-group full-width">
             <label class="field-label">服务端 API 地址</label>
@@ -117,7 +120,7 @@
             />
           </div>
           <div class="field-group">
-            <label class="field-label">同步主机</label>
+            <label class="field-label">Netty 主机（可选）</label>
             <input
               v-model.trim="clientConfig.syncHost"
               type="text"
@@ -126,7 +129,7 @@
             />
           </div>
           <div class="field-group">
-            <label class="field-label">同步端口</label>
+            <label class="field-label">Netty 端口（可选）</label>
             <input
               v-model.number="clientConfig.syncPort"
               type="number"
@@ -511,6 +514,12 @@ const handleSave = async () => {
 }
 .config-grid {
   margin-bottom: 12px;
+}
+.config-note {
+  margin: -4px 0 14px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.6;
 }
 .section-title {
   display: flex;

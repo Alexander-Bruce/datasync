@@ -183,8 +183,8 @@ POST /client/sync/upload
 **Flow**
 1. Look up the local SQLite `File` record by `path` and `email` to get the CDC algorithm class name
 2. Chunk local files with the CDC algorithm; each `SyncStyle.storagePath` is built as `email/folderName/...` (e.g. `alice@example.com/Documents/subdir`) to avoid collisions between users with identically named folders
-3. Call `POST /server/file/compare` (with `email`); server writes files under `basePath/email/folderName/`
-4. Send delta chunks (encrypted) to the server via Netty; server writes them to the corresponding sub-directory
+3. Call `POST /server/file/compare` (with `email`); server deletes stale files under `basePath/email/folderName/` and returns files that need upload
+4. Upload each changed file to `POST /server/file/upload` over HTTP(S); server writes it to the corresponding sub-directory through a `.part` temp file
 5. Update local `File.is_sync` and all `SubFile.is_sync` to `true`
 
 ---
@@ -303,6 +303,28 @@ POST /server/file/download
 **Response `data`**: Relative paths of all files under the server's scope directory — `string[]` (content not included).
 
 File content is fetched individually via `POST /server/file/download/file`.
+
+---
+
+### 5.3 Upload Single File
+
+```
+POST /server/file/upload?storagePath=<path>&fileName=<name>
+Content-Type: application/octet-stream
+```
+
+**Query parameters**
+
+| Field       | Type   | Description                                                                 |
+| ----------- | ------ | --------------------------------------------------------------------------- |
+| storagePath | string | Server-side relative directory, e.g. `alice@example.com/Documents/subdir`    |
+| fileName    | string | File name only. Path separators are rejected.                               |
+
+**Request body**: Raw file bytes.
+
+**Response `data`**: `{ "bytes": <uploaded byte count> }`
+
+**Notes**: This endpoint is used by the packaged client because Hugging Face Spaces proxy HTTPS traffic but do not expose arbitrary raw TCP Netty sockets. Legacy Netty upload remains documented for self-hosted environments.
 
 ---
 
@@ -615,9 +637,9 @@ POST /server/group/check-scope
 
 ---
 
-## 8. Netty Sync Protocol (Upload, Internal)
+## 8. Legacy Netty Sync Protocol (Upload, Internal)
 
-> The listening port is configured by `spring.netty.server.port` (default 8888).
+> The listening port is configured by `spring.netty.server.port` (default 8080). This path is for self-hosted deployments that expose raw TCP ports; Hugging Face Space deployments use `POST /server/file/upload` instead.
 
 **Handshake packet `StartSyncRequest`**
 

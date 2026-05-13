@@ -29,24 +29,28 @@
             placeholder="https://ccrystal-my-webapp.hf.space"
             autocomplete="off"
           />
+          <small>Hugging Face Space 上传只需要这个 HTTPS 地址。</small>
         </label>
 
-        <div class="field-grid">
-          <label class="field">
-            <span>同步主机</span>
-            <input
-              v-model.trim="form.syncHost"
-              type="text"
-              placeholder="119.91.105.168"
-              autocomplete="off"
-            />
-          </label>
+        <details class="advanced-sync">
+          <summary>高级：自托管 Netty 同步（可选）</summary>
+          <div class="field-grid">
+            <label class="field">
+              <span>Netty 主机</span>
+              <input
+                v-model.trim="form.syncHost"
+                type="text"
+                placeholder="119.91.105.168"
+                autocomplete="off"
+              />
+            </label>
 
-          <label class="field">
-            <span>同步端口</span>
-            <input v-model.number="form.syncPort" type="number" min="1" max="65535" />
-          </label>
-        </div>
+            <label class="field">
+              <span>Netty 端口</span>
+              <input v-model.number="form.syncPort" type="number" min="1" max="65535" />
+            </label>
+          </div>
+        </details>
 
         <div v-if="message" :class="['status-bar', statusType]">
           {{ message }}
@@ -246,6 +250,29 @@ h1 {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #475569;
+}
+
+.field small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.advanced-sync {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.advanced-sync summary {
+  cursor: pointer;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.advanced-sync .field-grid {
+  margin-top: 12px;
 }
 
 input {

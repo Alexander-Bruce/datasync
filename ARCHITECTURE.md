@@ -7,8 +7,8 @@ This document captures the current system map and the boundaries agents should p
 ```mermaid
 flowchart TD
     UI["sync-app\nElectron + Vue 3"] -->|Axios HTTP\nlocalhost:8092| Client["client-app\nSpring Boot local proxy"]
-    Client -->|REST HTTP\nlocalhost:8090| Server["server\nSpring Boot service"]
-    Client -->|Netty sync client\nconfigured port| NettyServer["server NettySyncServer"]
+    Client -->|REST + file content HTTP\nlocalhost:8090 or Space HTTPS| Server["server\nSpring Boot service"]
+    Client -.->|legacy raw TCP\nself-hosted only| NettyServer["server NettySyncServer"]
     Server --> MySQL["MySQL\nuser/auth data"]
     Server --> Redis["Redis\ncache/session-adjacent config"]
     Server --> Storage["Configured storage basePath\nfiles + groups.json"]
@@ -36,7 +36,7 @@ flowchart TD
 - `backend.controller.*`: other UI-facing REST endpoints for files, sync tasks, logs.
 - `backend.service.*`: local task/file/user workflows.
 - `backend.mapper.sqlite.*` and XML mappers: SQLite persistence.
-- `backend.sync.*`: Netty client transport toward the server.
+- `backend.sync.*`: legacy Netty client transport for self-hosted deployments; the packaged client uploads file content through HTTP.
 - `dataSync/*`: CDC implementations used for chunking.
 
 `server/` is the central Spring Boot service on port `8090`.
@@ -48,13 +48,14 @@ flowchart TD
 - `backend.controller.UserController` and `backend.service.UserService`: central user profile data used by login, fuzzy user search, and group-member autocomplete. Avatar values returned here must be remotely loadable by other desktop clients.
 - `backend.service.*`: user, file, and group workflows.
 - `backend.mapper.mysql.UserMapper`: MySQL user persistence; includes `searchByQuery` for fuzzy member search.
-- `backend.sync.server.*`: Netty server and sync packet handling.
+- `backend.sync.server.*`: legacy Netty server and sync packet handling.
 - `dataSync/*`: matching CDC implementations used when comparing/reconstructing content.
 
 ## Runtime Configuration
 
-- README documents HTTP defaults `server:8090` and `client-app:8092`.
-- Development YAML currently configures Netty with port `8443`; older docs mention `8888`. When touching sync transport, verify the effective profile and keep docs/config aligned.
+- README documents HTTP defaults `server:8090` and `client-app:8092`; the Docker Space profile uses HTTP port `7860`.
+- Netty defaults to port `8080`, but Hugging Face Spaces does not expose raw TCP Netty traffic. Space deployments must use the HTTP upload/download endpoints through HTTPS.
+- Docker Space storage uses `NETTY_BASE_PATH=/sync`. When persistent storage is attached, `docker-entrypoint.sh` links `/sync` to `/data/sync` so uploaded files survive restarts.
 - `server/src/main/resources/application*.yml` contains MySQL, Redis, AWS S3, JWT, Netty, and logging settings.
 - `client-app/src/main/resources/application*.yml` contains SQLite, JWT, Netty, and logging settings.
 - Environment-specific values and credentials should move to environment variables or ignored local override files.
@@ -67,8 +68,8 @@ Upload sync:
 2. `client-app` loads the local sync task, chunks files with the selected CDC algorithm.
 3. Each `SyncStyle.storagePath` is prefixed with `email/` so files are stored under `basePath/email/folderName/...`. This namespacing prevents two users with identically named folders from overwriting each other's data.
 4. `client-app` sends the file list (with email) to `POST /server/file/compare`; `server` uses `email/folderName` as the scope directory.
-5. `client-app` sends encrypted sync packets through Netty; `server` writes files to the email-namespaced path.
-6. `client-app` marks local SQLite `File` and `SubFile` records as synced.
+5. `client-app` uploads changed files to `POST /server/file/upload` using `application/octet-stream`; `server` writes files to the email-namespaced path via `.part` temp files.
+6. `client-app` marks local SQLite `File` and `SubFile` records as synced only after the HTTP upload phase succeeds.
 
 Download sync:
 
@@ -120,12 +121,12 @@ Dashboard search:
 
 - The desktop renderer should call `client-app`, not mutate server storage or SQLite directly.
 - `client-app` owns local filesystem and SQLite side effects; tests must use temp directories and disposable SQLite files.
-- `server` owns central storage, MySQL/Redis integration, group metadata, and Netty receive/reconstruction behavior.
+- `server` owns central storage, MySQL integration, group metadata, HTTP file storage, and legacy Netty receive/reconstruction behavior.
 - Upload/download paths are data-loss-sensitive. Preserve path normalization, scope derivation, and overwrite/delete semantics deliberately.
 - **Scope namespacing** — server storage paths must always use the format `basePath/email/folderName/`. Never write to `basePath/folderName/` directly; that was the pre-fix format and causes multi-user collisions. The `email` used is the task owner's login email, taken from the authenticated session — not a user-supplied string.
 - **Scope key format** — `Group.scopes` entries and all API `scopeName` parameters must be `email/folderName` strings. Never store bare folder names; doing so breaks both storage routing and the deletion guard.
 - **Task deletion guard** — `client-app.FileServiceImpl.deleteFileTask()` must call `POST /server/group/check-scope` before removing local SQLite records. Bypassing this check can leave group members with a dangling scope that points to deleted server storage.
-- Keep encryption compatible: AES-256-GCM per packet and RSA-OAEP key exchange must remain symmetric between client and server.
+- Keep legacy Netty encryption compatible: AES-256-GCM per packet and RSA-OAEP key exchange must remain symmetric between client and server.
 - REST contracts documented in `API.md` should remain backward compatible unless the change updates callers and docs together.
 - MyBatis Java mapper interfaces and XML mapper files must change together.
 - Never introduce new hard-coded credentials, private keys, tokens, or production hosts.
@@ -154,6 +155,6 @@ Do not edit or treat these as source of truth unless explicitly asked:
 - Java tests are currently minimal Spring context tests and may depend on live development configuration.
 - The Java modules duplicate substantial package structure. Cross-module changes need paired review to avoid protocol drift.
 - `client-app` local user schema/mappers have drift risk around profile fields; profile work should verify a fresh SQLite schema, old SQLite migration behavior, and existing local DB behavior.
-- `HttpJsonClient` is a static JSON-only helper with limited error propagation and no multipart support, which makes proxy tests and upload features harder than they should be.
+- `HttpJsonClient` handles JSON requests plus octet-stream file upload/download; timeout and error behavior are part of the sync contract.
 - File sync operations can overwrite or delete user data. Prefer fixtures and temp folders for verification.
-- Netty port documentation and development configuration appear inconsistent; align before making transport-facing changes.
+- Hugging Face Space deployments need persistent storage enabled for `/data/sync`; otherwise files written to `/sync` are lost when the Space restarts.

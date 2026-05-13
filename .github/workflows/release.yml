@@ -112,5 +112,5 @@ jobs:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: DataSync ${{ github.event.inputs.tag || github.ref_name }}
           files: release-assets/*
-          prerelease: true
+          prerelease: ${{ contains(github.event.inputs.tag, 'preview') || contains(github.ref_name, 'preview') }}
           generate_release_notes: true

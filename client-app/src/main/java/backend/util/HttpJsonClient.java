@@ -5,14 +5,18 @@ import backend.exception.model.BaseException;
 import backend.model.ClientConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.StringJoiner;
 
 public class HttpJsonClient {
 
@@ -117,6 +121,41 @@ public class HttpJsonClient {
     }
   }
 
+  public static void uploadFile(String url, File file, Map<String, String> params) {
+    try {
+      String fullUrl = appendQuery(resolveUrl(url), params);
+
+      HttpRequest request =
+          HttpRequest.newBuilder()
+              .uri(URI.create(fullUrl))
+              .timeout(Duration.ofMinutes(30))
+              .POST(HttpRequest.BodyPublishers.ofFile(file.toPath()))
+              .header("Content-Type", "application/octet-stream")
+              .build();
+
+      HttpResponse<String> response =
+          HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+      if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        throw new BaseException(
+            "HTTP文件上传失败: " + response.statusCode() + " - " + response.body(),
+            response.statusCode());
+      }
+
+      ResultEntity<?> tempResult =
+          OBJECT_MAPPER.readValue(response.body(), new TypeReference<ResultEntity<?>>() {});
+
+      if (tempResult.getCode() < 200 || tempResult.getCode() >= 300) {
+        throw new BaseException("文件上传失败: " + tempResult.getMessage(), response.statusCode());
+      }
+    } catch (IOException | InterruptedException e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      throw new RuntimeException("文件上传异常: " + e.getMessage(), e);
+    }
+  }
+
   public static Map<String, Object> testConnection(ClientConfig config) {
     ClientConfig normalized = ClientConfigStore.normalize(config, true);
     String testUrl = joinUrl(normalized.getServerBaseUrl(), "/");
@@ -150,6 +189,22 @@ public class HttpJsonClient {
   private static String resolveUrl(String url) {
     ClientConfig config = ClientConfigStore.requireConfigured();
     return joinUrl(config.getServerBaseUrl(), url);
+  }
+
+  private static String appendQuery(String url, Map<String, String> params) {
+    if (params == null || params.isEmpty()) {
+      return url;
+    }
+
+    StringJoiner query = new StringJoiner("&");
+    params.forEach(
+        (key, value) ->
+            query.add(
+                URLEncoder.encode(key, StandardCharsets.UTF_8)
+                    + "="
+                    + URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8)));
+
+    return url + (url.contains("?") ? "&" : "?") + query;
   }
 
   private static String joinUrl(String baseUrl, String url) {

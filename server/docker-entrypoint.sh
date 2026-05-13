@@ -6,12 +6,26 @@ MYSQL_SOCKET="${MYSQL_SOCKET:-/run/mysqld/mysqld.sock}"
 MYSQL_DATABASE="${MYSQL_DATABASE:-datasync}"
 MYSQL_PID=""
 APP_PID=""
+SYNC_PATH="${NETTY_BASE_PATH:-/sync}"
+PERSISTENT_SYNC_PATH="${PERSISTENT_SYNC_PATH:-/data/sync}"
 
 export MYSQL_PASSWORD="${MYSQL_PASSWORD:-datasync}"
 export MYSQL_USERNAME="${MYSQL_USERNAME:-root}"
 export MYSQL_URL="${MYSQL_URL:-jdbc:mysql://127.0.0.1:3306/${MYSQL_DATABASE}}"
 
-mkdir -p "$MYSQL_DATA_DIR" /run/mysqld /sync
+if [ "$SYNC_PATH" = "/sync" ] && [ -d /data ] && [ -w /data ]; then
+  mkdir -p "$PERSISTENT_SYNC_PATH"
+  if [ -L /sync ]; then
+    :
+  elif [ -d /sync ] && [ -z "$(ls -A /sync 2>/dev/null)" ]; then
+    rmdir /sync
+  fi
+  if [ ! -e /sync ]; then
+    ln -s "$PERSISTENT_SYNC_PATH" /sync
+  fi
+fi
+
+mkdir -p "$MYSQL_DATA_DIR" /run/mysqld "$SYNC_PATH"
 chown -R mysql:mysql "$MYSQL_DATA_DIR" /run/mysqld
 
 if [ ! -d "$MYSQL_DATA_DIR/mysql" ]; then
