@@ -1020,7 +1020,7 @@ const syncUpload = async (task) => {
       fileId: task.id,
       email: currentUser.email,
       path: task.path
-    })
+    }, { timeout: 0 })
     syncSuccess[task.id] = true
     task.isSync = true
     task.updateTime = new Date().toISOString()

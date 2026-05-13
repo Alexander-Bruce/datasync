@@ -21,7 +21,7 @@ import java.util.StringJoiner;
 public class HttpJsonClient {
 
   private static final HttpClient HTTP_CLIENT =
-      HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+      HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -49,7 +49,6 @@ public class HttpJsonClient {
       HttpRequest.Builder builder =
           HttpRequest.newBuilder()
               .uri(URI.create(url))
-              .timeout(Duration.ofSeconds(10))
               .POST(HttpRequest.BodyPublishers.ofString(json))
               .header("Content-Type", "application/json");
 
@@ -86,7 +85,7 @@ public class HttpJsonClient {
   }
 
   /**
-   * 分片下载专用：POST JSON 请求，直接返回响应体的原始字节（不解析 JSON）。 超时时间设置为 5 分钟，适合大文件传输。
+   * 下载专用：POST JSON 请求，直接返回响应体的原始字节（不解析 JSON）。 不设请求超时，仅靠连接超时检测服务端是否可达。
    *
    * @param url 相对路径（自动拼接 basePath）
    * @param body 请求体对象，会序列化为 JSON
@@ -97,19 +96,15 @@ public class HttpJsonClient {
       String json = OBJECT_MAPPER.writeValueAsString(body);
       String fullUrl = resolveUrl(url);
 
-      HttpClient fileClient =
-          HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
-
       HttpRequest request =
           HttpRequest.newBuilder()
               .uri(URI.create(fullUrl))
-              .timeout(Duration.ofMinutes(5))
               .POST(HttpRequest.BodyPublishers.ofString(json))
               .header("Content-Type", "application/json")
               .build();
 
       HttpResponse<byte[]> response =
-          fileClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+          HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
       if (response.statusCode() < 200 || response.statusCode() >= 300) {
         throw new RuntimeException("下载文件失败: HTTP " + response.statusCode());
@@ -128,7 +123,6 @@ public class HttpJsonClient {
       HttpRequest request =
           HttpRequest.newBuilder()
               .uri(URI.create(fullUrl))
-              .timeout(Duration.ofMinutes(30))
               .POST(HttpRequest.BodyPublishers.ofFile(file.toPath()))
               .header("Content-Type", "application/octet-stream")
               .build();

@@ -535,7 +535,7 @@ const ctxUpload = async () => {
       fileId: originalId.value,
       email: userEmail.value,
       path: rootPath
-    })
+    }, { timeout: 0 })
     const f = files.value.find((f) => f.id === file.id)
     if (f) f.isSync = true
   } catch (err) {
@@ -554,7 +554,7 @@ const ctxDownload = async () => {
       fileId: originalId.value,
       email: userEmail.value,
       path: rootPath
-    })
+    }, { timeout: 0 })
     const f = files.value.find((f) => f.id === file.id)
     if (f) f.isSync = true
   } catch (err) {

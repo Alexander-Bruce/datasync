@@ -53,13 +53,14 @@ class HttpManager {
     })
   }
 
-  static async post(url, data) {
+  static async post(url, data, config = {}) {
     return service({
       url,
       method: 'post',
       data,
       needToken: true,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      ...config
     })
   }
 
