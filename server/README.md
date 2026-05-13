@@ -34,6 +34,7 @@ Default ports:
 - HTTP: `7860`
 - Netty sync: `8080`
 - Sync storage path: `/sync`
+- MariaDB data path: `/tmp/mysql`
 
 Redis is not packaged because the current server code path does not use it. If `MYSQL_URL` is
 overridden to an external database, remember that Hugging Face Spaces only allow outbound requests

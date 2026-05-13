@@ -13,6 +13,7 @@ ENV NETTY_SERVER_PORT=8080
 ENV NETTY_CLIENT_PORT=8080
 ENV NETTY_BASE_PATH=/sync
 ENV MYSQL_DATABASE=datasync
+ENV MYSQL_DATA_DIR=/tmp/mysql
 ENV MYSQL_URL=jdbc:mysql://127.0.0.1:3306/datasync
 ENV MYSQL_USERNAME=root
 ENV MYSQL_PASSWORD=datasync
@@ -21,8 +22,8 @@ RUN apt-get update \
       mariadb-client \
       mariadb-server \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/db /sync /data/mysql /run/mysqld \
-    && chown -R mysql:mysql /data/mysql /run/mysqld
+    && mkdir -p /app/db /sync /tmp/mysql /run/mysqld \
+    && chown -R mysql:mysql /tmp/mysql /run/mysqld
 
 COPY --from=build /workspace/target/*.jar /app/app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MYSQL_DATA_DIR="${MYSQL_DATA_DIR:-/data/mysql}"
+MYSQL_DATA_DIR="${MYSQL_DATA_DIR:-/tmp/mysql}"
 MYSQL_SOCKET="${MYSQL_SOCKET:-/run/mysqld/mysqld.sock}"
 MYSQL_DATABASE="${MYSQL_DATABASE:-datasync}"
 MYSQL_PID=""
