@@ -637,6 +637,20 @@ POST /server/group/check-scope
 
 ---
 
+### 7.10 Resolve User Cache
+
+```
+POST /server/user/resolve
+```
+
+**Request body**: `{ "email": "user@example.com" }`
+
+**Response `data`**: `{ id, username, email, avatar }`
+
+**Notes**: `client-app` uses this endpoint to rebuild its local SQLite user cache after reinstalling the desktop client while Electron localStorage still contains a valid login session.
+
+---
+
 ## 8. Legacy Netty Sync Protocol (Upload, Internal)
 
 > The listening port is configured by `spring.netty.server.port` (default 8080). This path is for self-hosted deployments that expose raw TCP ports; Hugging Face Space deployments use `POST /server/file/upload` instead.

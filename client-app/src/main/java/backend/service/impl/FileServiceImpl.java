@@ -58,7 +58,7 @@ public class FileServiceImpl implements FileService {
   @Override
   public boolean upload(int fileId, String path, String email) {
 
-    User u = userMapper.selectByEmail(email);
+    User u = requireLocalUser(email);
 
     backend.model.entity.File file = findUserTask(fileId, path, u.getId());
 
@@ -76,7 +76,7 @@ public class FileServiceImpl implements FileService {
 
   @Override
   public List<backend.model.entity.File> getBriefFileList(String email) {
-    return fileMapper.selectById(userMapper.selectByEmail(email).getId());
+    return fileMapper.selectById(requireLocalUser(email).getId());
   }
 
   private backend.model.entity.File findUserTask(int fileId, String path, int userId) {
@@ -110,7 +110,7 @@ public class FileServiceImpl implements FileService {
 
     if (normalizedPath.isEmpty()) throw new BaseException(TASK_PATH_REQUIRED_MESSAGE, CONFLICT);
 
-    User u = userMapper.selectByEmail(email);
+    User u = requireLocalUser(email);
 
     backend.model.entity.File originalTask = fileId > 0 ? fileMapper.selectByFileId(fileId) : null;
 
@@ -174,7 +174,7 @@ public class FileServiceImpl implements FileService {
   @Override
   @Transactional(transactionManager = "sqliteTransactionManager")
   public Boolean deleteFileTask(int fileId, String path, String email) {
-    User u = userMapper.selectByEmail(email);
+    User u = requireLocalUser(email);
     backend.model.entity.File file = findUserTask(fileId, path, u.getId());
     if (file == null) return false;
 
@@ -208,7 +208,7 @@ public class FileServiceImpl implements FileService {
   @Override
   public boolean download(int fileId, String path, String email) {
 
-    User u = userMapper.selectByEmail(email);
+    User u = requireLocalUser(email);
 
     backend.model.entity.File file = findUserTask(fileId, path, u.getId());
 
@@ -461,11 +461,7 @@ public class FileServiceImpl implements FileService {
       return false;
     }
 
-    User u = userMapper.selectByEmail(email);
-    if (u == null) {
-      System.err.println("错误：用户不存在 " + email);
-      return false;
-    }
+    User u = requireLocalUser(email);
 
     // 使用 TransactionTemplate 确保同一事务内提交，避免 auto-commit=false 导致写入不生效
     TransactionTemplate txTemplate = new TransactionTemplate(sqliteTransactionManager);
@@ -641,5 +637,49 @@ public class FileServiceImpl implements FileService {
 
       list.add(new SyncStyle(currentFile, cdcManager, relativePath));
     }
+  }
+
+  private User requireLocalUser(String email) {
+    String normalizedEmail = email == null ? "" : email.trim();
+    if (normalizedEmail.isEmpty()) {
+      throw new BaseException("用户邮箱不能为空", 400);
+    }
+
+    User user = userMapper.selectByEmail(normalizedEmail);
+    if (user != null && user.getId() != null) {
+      return user;
+    }
+
+    Map<String, Object> remoteUser =
+        HttpJsonClient.postForData(
+            "server/user/resolve", Map.of("email", normalizedEmail), new TypeReference<>() {});
+
+    User restoredUser =
+        User.builder()
+            .id(parseUserId(remoteUser.get("id")))
+            .username(asString(remoteUser.get("username")))
+            .email(asString(remoteUser.get("email")))
+            .avatar(asString(remoteUser.get("avatar")))
+            .build();
+
+    if (restoredUser.getId() == null || restoredUser.getEmail() == null) {
+      throw new BaseException("无法恢复本地用户缓存，请重新登录。", 428);
+    }
+
+    userMapper.insert(restoredUser);
+    return restoredUser;
+  }
+
+  private Integer parseUserId(Object value) {
+    if (value == null) return null;
+    if (value instanceof Number number) return number.intValue();
+    String text = value.toString().trim();
+    return text.isEmpty() ? null : Integer.valueOf(text);
+  }
+
+  private String asString(Object value) {
+    if (value == null) return null;
+    String text = value.toString();
+    return text.isBlank() ? null : text;
   }
 }

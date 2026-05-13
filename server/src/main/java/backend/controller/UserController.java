@@ -22,6 +22,11 @@ public class UserController {
     return ResultEntity.success(200, "Users found", userService.searchUsers(map.get("q")));
   }
 
+  @PostMapping("/resolve")
+  public ResponseEntity<ResultEntity<Object>> resolveUser(@RequestBody Map<String, String> map) {
+    return ResultEntity.success(200, "User resolved", userService.resolveUser(map.get("email")));
+  }
+
   @PostMapping("/update")
   public ResponseEntity<ResultEntity<Object>> update(@RequestBody User user) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();

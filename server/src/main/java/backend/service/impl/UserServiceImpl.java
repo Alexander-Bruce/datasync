@@ -193,4 +193,23 @@ public class UserServiceImpl implements UserService {
     }
     return result;
   }
+
+  @Override
+  public Map<String, String> resolveUser(String email) {
+    if (email == null || email.trim().isEmpty()) {
+      throw new BaseException("email is required", 400);
+    }
+
+    User user = userMapper.selectByEmail(email.trim());
+    if (user == null) {
+      throw new BaseException("User not found", 404);
+    }
+
+    Map<String, String> map = new HashMap<>();
+    map.put("id", String.valueOf(user.getId()));
+    map.put("username", user.getUsername() != null ? user.getUsername() : "");
+    map.put("email", user.getEmail());
+    map.put("avatar", user.getAvatar() != null ? user.getAvatar() : "");
+    return map;
+  }
 }

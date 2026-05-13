@@ -12,4 +12,6 @@ public interface UserService {
   Map<String, String> update(User user);
 
   List<Map<String, String>> searchUsers(String query);
+
+  Map<String, String> resolveUser(String email);
 }
