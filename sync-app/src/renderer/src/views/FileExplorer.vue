@@ -531,11 +531,15 @@ const ctxUpload = async () => {
   // 与 ctxDownload 保持一致，使用同步任务根路径
   const rootPath = navStack[0]?.path || file.relativePath
   try {
-    await HttpManager.post('/client/sync/upload', {
-      fileId: originalId.value,
-      email: userEmail.value,
-      path: rootPath
-    }, { timeout: 0 })
+    await HttpManager.post(
+      '/client/sync/upload',
+      {
+        fileId: originalId.value,
+        email: userEmail.value,
+        path: rootPath
+      },
+      { timeout: 0 }
+    )
     const f = files.value.find((f) => f.id === file.id)
     if (f) f.isSync = true
   } catch (err) {
@@ -550,11 +554,15 @@ const ctxDownload = async () => {
   // 保证客户端能定位到正确的 File 记录并与服务端范围名匹配。
   const rootPath = navStack[0]?.path || file.relativePath
   try {
-    await HttpManager.post('/client/sync/download', {
-      fileId: originalId.value,
-      email: userEmail.value,
-      path: rootPath
-    }, { timeout: 0 })
+    await HttpManager.post(
+      '/client/sync/download',
+      {
+        fileId: originalId.value,
+        email: userEmail.value,
+        path: rootPath
+      },
+      { timeout: 0 }
+    )
     const f = files.value.find((f) => f.id === file.id)
     if (f) f.isSync = true
   } catch (err) {

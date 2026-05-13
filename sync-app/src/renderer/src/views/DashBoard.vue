@@ -1016,11 +1016,15 @@ const syncUpload = async (task) => {
   if (syncPaused.value || syncStatus[task.id]) return
   syncStatus[task.id] = 'up'
   try {
-    await HttpManager.post('/client/sync/upload', {
-      fileId: task.id,
-      email: currentUser.email,
-      path: task.path
-    }, { timeout: 0 })
+    await HttpManager.post(
+      '/client/sync/upload',
+      {
+        fileId: task.id,
+        email: currentUser.email,
+        path: task.path
+      },
+      { timeout: 0 }
+    )
     syncSuccess[task.id] = true
     task.isSync = true
     task.updateTime = new Date().toISOString()
