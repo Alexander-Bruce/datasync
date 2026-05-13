@@ -26,7 +26,7 @@
           <input
             v-model.trim="form.serverBaseUrl"
             type="text"
-            placeholder="http://119.91.105.168:8090"
+            placeholder="https://ccrystal-my-webapp.hf.space"
             autocomplete="off"
           />
         </label>
@@ -83,7 +83,7 @@ const statusType = ref('info')
 const form = reactive({
   serverBaseUrl: '',
   syncHost: '',
-  syncPort: 8443
+  syncPort: 8080
 })
 
 onMounted(() => {
@@ -95,7 +95,7 @@ function fillFromConfig(config) {
   if (!config) return
   form.serverBaseUrl = config.serverBaseUrl || form.serverBaseUrl
   form.syncHost = config.syncHost || form.syncHost
-  form.syncPort = config.syncPort || form.syncPort || 8443
+  form.syncPort = config.syncPort || form.syncPort || 8080
 }
 
 async function loadConfig() {
@@ -130,7 +130,7 @@ async function submit(url, successText, persist = false) {
     const res = await HttpManager.postNoAuth(url, {
       serverBaseUrl: form.serverBaseUrl,
       syncHost: form.syncHost,
-      syncPort: Number(form.syncPort || 8443)
+      syncPort: Number(form.syncPort || 8080)
     })
     const data = res?.data ?? res
     fillFromConfig(data)

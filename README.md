@@ -97,7 +97,7 @@ DataSync consists of three sub-modules:
 │  SQLite │ FileService │ SyncController │ GroupController      │
 │  NettyClientManager → NettySyncClient                        │
 └──────┬──────────────────────────────────────┬────────────────┘
-       │ REST (HTTP, port 8090)               │ Netty (port 8443)
+       │ REST (HTTP, port 8090)               │ Netty (port 8080)
        ▼                                      ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                   server (Spring Boot)                        │
@@ -255,7 +255,7 @@ cd server
 mvnw.cmd spring-boot:run    # Windows
 ```
 
-The server starts on **port 8090** (HTTP) and **port 8443** (Netty, configurable).
+The server starts on **port 8090** (HTTP) and **port 8080** (Netty, configurable).
 
 ---
 
@@ -335,7 +335,7 @@ application:
 
   netty:
     server:
-      port: 8443                         # Netty listening port (must match client)
+      port: 8080                         # Netty listening port (must match client)
       basePath: /path/to/server/storage  # Where synced files are stored on server
 
   jwt:
@@ -362,10 +362,10 @@ application:
 
   netty:
     server:
-      port: 8443                           # Must match server netty.server.port
+      port: 8080                           # Must match server netty.server.port
       basePath: /path/to/local/sync/root   # Local root for synced files
     client:
-      port: 8443                           # Must match server netty.server.port
+      port: 8080                           # Must match server netty.server.port
       host: <server_ip_or_hostname>        # Address of the server
 
   jwt:

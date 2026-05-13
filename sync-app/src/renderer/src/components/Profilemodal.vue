@@ -113,7 +113,7 @@
               v-model.trim="clientConfig.serverBaseUrl"
               type="text"
               class="ds-input"
-              placeholder="http://119.91.105.168:7860"
+              placeholder="https://ccrystal-my-webapp.hf.space"
             />
           </div>
           <div class="field-group">
@@ -198,7 +198,7 @@ const configTesting = ref(false)
 const message = reactive({ text: '', type: '' })
 const configMessage = reactive({ text: '', type: '' })
 const form = reactive({ username: '', email: '', avatar: '' })
-const clientConfig = reactive({ serverBaseUrl: '', syncHost: '', syncPort: 8443 })
+const clientConfig = reactive({ serverBaseUrl: '', syncHost: '', syncPort: 8080 })
 const avatarFileName = ref('')
 const configBusy = computed(() => configSaving.value || configTesting.value)
 
@@ -214,7 +214,7 @@ const fillConfig = (config) => {
   if (!config) return
   clientConfig.serverBaseUrl = config.serverBaseUrl || clientConfig.serverBaseUrl
   clientConfig.syncHost = config.syncHost || clientConfig.syncHost
-  clientConfig.syncPort = config.syncPort || clientConfig.syncPort || 8443
+  clientConfig.syncPort = config.syncPort || clientConfig.syncPort || 8080
 }
 
 const loadClientConfig = async () => {
@@ -258,7 +258,7 @@ const submitServerConfig = async (url, successText, persist = false) => {
   const payload = {
     serverBaseUrl: clientConfig.serverBaseUrl,
     syncHost: clientConfig.syncHost,
-    syncPort: Number(clientConfig.syncPort || 8443)
+    syncPort: Number(clientConfig.syncPort || 8080)
   }
   try {
     const res = await HttpManager.postNoAuth(url, payload)

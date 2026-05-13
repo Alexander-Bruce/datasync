@@ -29,10 +29,10 @@ application:
 
   netty:
     server:
-      port: 8443
+      port: 8080
       basePath: /path/to/server/storage   # where synced files will be stored on server
     client:
-      port: 8443
+      port: 8080
       host: localhost
 
   jwt:

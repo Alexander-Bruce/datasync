@@ -5,10 +5,10 @@ application:
 
   netty:
     server:
-      port: 8443
+      port: 8080
       basePath: /path/to/local/sync/folder   # local root directory for synced files
     client:
-      port: 8443
+      port: 8080
       host: localhost         # fallback only; runtime setup writes the actual server host
 
   jwt:

@@ -12,7 +12,7 @@ import java.nio.file.Paths;
 public final class ClientConfigStore {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final int DEFAULT_SYNC_PORT = 8443;
+  private static final int DEFAULT_SYNC_PORT = 8080;
   private static final Path CONFIG_PATH =
       Paths.get(System.getProperty("user.home"), ".datasync", "client-config.json");
 
