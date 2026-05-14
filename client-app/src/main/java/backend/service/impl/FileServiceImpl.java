@@ -237,6 +237,10 @@ public class FileServiceImpl implements FileService {
       return false;
     }
 
+    // 文件落盘后，按当前磁盘状态重建 SubFile 表。restore-from-remote 场景下，本地任务创建时
+    // 磁盘还没有文件，afterCommit 的 addFiles 扫不到任何东西；下载完成后再扫一次，UI 才能正确列出。
+    addFiles(file.getId(), file.getPath(), email);
+
     fileMapper.updateSyncById(file.getId(), true);
     subFileMapper.updateSyncByFileId(file.getId(), true);
 
