@@ -1,6 +1,7 @@
 package backend.service.impl;
 
 import backend.service.FileService;
+import backend.util.RemoteScope;
 import backend.util.SyncStyle;
 import java.io.File;
 import java.io.IOException;
@@ -242,6 +243,46 @@ public class FileServiceImpl implements FileService {
     } catch (IOException e) {
       throw new RuntimeException("读取文件失败: " + target.getAbsolutePath() + " - " + e.getMessage(), e);
     }
+  }
+
+  /**
+   * 扫描 basePath/&lt;email&gt; 下每个 alias 目录，列出该 alias 目录里的「root 条目」（文件或子目录）作为一条 scope 返回。
+   *
+   * <p>这里不依赖任何数据库，只读磁盘真实状态，刚装好客户端的用户可以靠它把过去存在 bucket 的任务列表拉回本地。
+   */
+  @Override
+  public List<RemoteScope> listUserScopes(String email) {
+    List<RemoteScope> result = new ArrayList<>();
+    if (email == null || email.isBlank()) return result;
+
+    File serverBase = serverBaseDir();
+    File emailDir = new File(serverBase, email.trim());
+    if (!emailDir.isDirectory()) return result;
+
+    File[] aliases = emailDir.listFiles();
+    if (aliases == null) return result;
+    Arrays.sort(aliases, Comparator.comparing(File::getName));
+
+    for (File aliasDir : aliases) {
+      String aliasName = aliasDir.getName();
+      if (aliasName.startsWith(".__legacy__")) continue;
+      if (!aliasDir.isDirectory()) {
+        // 旧布局还没迁移的单文件 scope：basePath/email/file.ext 本身就是文件，把它视作 alias=rootName=name 的 scope。
+        result.add(new RemoteScope(aliasName, aliasName, false, email + "/" + aliasName));
+        continue;
+      }
+
+      File[] roots = aliasDir.listFiles();
+      if (roots == null || roots.length == 0) continue;
+
+      // 新布局下每个 alias 目录里只有一个与 alias 同名的 root 条目；为容错也兼容多条目，按 root 名字稳定排序后取第一条。
+      Arrays.sort(roots, Comparator.comparing(File::getName));
+      File root = roots[0];
+      String rootName = root.getName();
+      String scopeName = email + "/" + aliasName + "/" + rootName;
+      result.add(new RemoteScope(aliasName, rootName, root.isDirectory(), scopeName));
+    }
+    return result;
   }
 
   @Override

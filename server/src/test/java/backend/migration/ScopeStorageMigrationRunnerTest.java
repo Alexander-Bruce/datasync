@@ -43,6 +43,48 @@ class ScopeStorageMigrationRunnerTest {
   }
 
   @Test
+  void migrationMovesDeeplyNestedFilesIntoAliasDir() throws Exception {
+    // 模拟 HF Space 上常见的形态：legacy email/X 是一个大目录，内部有多层子目录、混杂 .git 这种隐藏目录。
+    Path emailDir = tempDir.resolve("nested@example.com");
+    Path legacyRoot = emailDir.resolve("Project");
+    Files.createDirectories(legacyRoot.resolve(".git").resolve("hooks"));
+    Files.createDirectories(legacyRoot.resolve("src").resolve("main").resolve("java"));
+    Files.writeString(legacyRoot.resolve(".git").resolve("HEAD"), "ref", StandardCharsets.UTF_8);
+    Files.writeString(
+        legacyRoot.resolve(".git").resolve("hooks").resolve("pre-commit.sample"),
+        "hook",
+        StandardCharsets.UTF_8);
+    Files.writeString(
+        legacyRoot.resolve("src").resolve("main").resolve("java").resolve("App.java"),
+        "code",
+        StandardCharsets.UTF_8);
+    Files.writeString(legacyRoot.resolve("README.md"), "readme", StandardCharsets.UTF_8);
+
+    runMigration();
+
+    Path newRoot = legacyRoot.resolve("Project");
+    assertTrue(Files.isDirectory(newRoot));
+    assertEquals(
+        "ref", Files.readString(newRoot.resolve(".git").resolve("HEAD"), StandardCharsets.UTF_8));
+    assertEquals(
+        "hook",
+        Files.readString(
+            newRoot.resolve(".git").resolve("hooks").resolve("pre-commit.sample"),
+            StandardCharsets.UTF_8));
+    assertEquals(
+        "code",
+        Files.readString(
+            newRoot.resolve("src").resolve("main").resolve("java").resolve("App.java"),
+            StandardCharsets.UTF_8));
+    assertEquals("readme", Files.readString(newRoot.resolve("README.md"), StandardCharsets.UTF_8));
+
+    // legacyRoot 现在应该只剩 Project/ 这一个子目录，原来散在外面的旧子目录都该被清空删除了
+    assertFalse(Files.exists(legacyRoot.resolve(".git")));
+    assertFalse(Files.exists(legacyRoot.resolve("src")));
+    assertFalse(Files.exists(legacyRoot.resolve("README.md")));
+  }
+
+  @Test
   void migrationIsIdempotent() throws Exception {
     Path emailDir = tempDir.resolve("user@example.com");
     Files.createDirectories(emailDir.resolve("Pictures"));

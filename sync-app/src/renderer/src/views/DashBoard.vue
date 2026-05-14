@@ -276,6 +276,9 @@
                 />
               </svg>
               <p>没有匹配的同步任务</p>
+              <button type="button" class="restore-btn" @click="openRestoreModal">
+                从服务器恢复任务
+              </button>
             </div>
 
             <div v-else class="task-list">
@@ -292,11 +295,7 @@
                 class="task-row"
                 :class="{ active: syncStatus[task.id], synced: task.isSync }"
               >
-                <button
-                  class="task-main"
-                  type="button"
-                  @click="task.isDir ? navigateInto(task) : null"
-                >
+                <button class="task-main" type="button" @click="navigateInto(task)">
                   <span class="task-icon" :class="task.isDir ? 'folder' : 'file'">
                     <svg v-if="task.isDir" viewBox="0 0 24 24" fill="currentColor">
                       <path
@@ -718,6 +717,74 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 远端任务恢复弹窗：刚装好客户端、本地数据库还没有 task 时，把 bucket 里历史的 scope 拉出来选择性恢复到本地 -->
+    <Teleport to="body">
+      <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
+        <div class="restore-panel">
+          <h3>从服务器恢复任务</h3>
+          <p class="restore-sub">
+            下列任务在远端 bucket
+            中已存在。勾选要拉回本地的任务，然后选择一个本地基础目录，每个任务会被恢复到
+            <code>本地目录/任务别名/根名</code> 下并立即下行同步。
+          </p>
+
+          <div v-if="restoreLoading" class="restore-loading">
+            <div class="loading-spinner"></div>
+            <p>正在拉取远端任务列表...</p>
+          </div>
+          <p v-else-if="restoreError" class="delete-error-msg">{{ restoreError }}</p>
+          <div v-else-if="remoteScopes.length === 0" class="restore-empty">
+            远端没有该账号的任务，直接点上方"新建任务"开始即可。
+          </div>
+          <div v-else class="restore-list">
+            <label
+              v-for="scope in remoteScopes"
+              :key="scope.scopeName"
+              class="restore-row"
+              :class="{ active: restoreSelection[scope.scopeName] }"
+            >
+              <input
+                v-model="restoreSelection[scope.scopeName]"
+                type="checkbox"
+                :disabled="scope.localExists"
+              />
+              <span class="restore-icon" :class="scope.isDir ? 'folder' : 'file'"></span>
+              <div class="restore-info">
+                <strong>{{ scope.alias }}</strong>
+                <small>{{ scope.rootName }} · {{ scope.isDir ? '文件夹' : '单文件' }}</small>
+              </div>
+              <small v-if="scope.localExists" class="restore-exists">本地已有</small>
+            </label>
+          </div>
+
+          <div v-if="remoteScopes.length > 0" class="restore-path-row">
+            <label class="field-label">本地基础目录</label>
+            <div class="path-row">
+              <input v-model="restoreBasePath" type="text" class="ds-input" readonly />
+              <button type="button" class="browse-btn" @click="pickRestoreBasePath">
+                浏览文件夹
+              </button>
+            </div>
+          </div>
+
+          <div v-if="restoreProgress" class="restore-progress">{{ restoreProgress }}</div>
+
+          <div class="confirm-actions">
+            <button class="btn-secondary" type="button" @click="closeRestoreModal">关闭</button>
+            <button
+              v-if="remoteScopes.length > 0"
+              class="btn-primary"
+              type="button"
+              :disabled="restoreRunning || selectedRestoreCount === 0 || !restoreBasePath"
+              @click="doRestore"
+            >
+              {{ restoreRunning ? '恢复中...' : `恢复 ${selectedRestoreCount} 个任务` }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -1085,6 +1152,136 @@ const scopeDisplayName = (scopeName) => {
   if (!scopeName) return scopeName
   const idx = scopeName.indexOf('/')
   return idx >= 0 ? scopeName.slice(idx + 1) : scopeName
+}
+
+// ── 远端任务恢复 ──────────────────────────────────────────
+// 刚装好客户端时本地数据库是空的，但 bucket 里可能还存着该账号过往的任务文件。
+// 这里从 server 拉到 scope 列表，让用户挑选要恢复哪些任务、放到本地哪里，然后逐个创建本地 task 并触发下行同步。
+const showRestoreModal = ref(false)
+const restoreLoading = ref(false)
+const restoreError = ref('')
+const restoreRunning = ref(false)
+const remoteScopes = ref([])
+const restoreSelection = reactive({})
+const restoreBasePath = ref('')
+const restoreProgress = ref('')
+
+const selectedRestoreCount = computed(() => Object.values(restoreSelection).filter(Boolean).length)
+
+const openRestoreModal = async () => {
+  showRestoreModal.value = true
+  restoreLoading.value = true
+  restoreError.value = ''
+  restoreProgress.value = ''
+  remoteScopes.value = []
+  Object.keys(restoreSelection).forEach((k) => delete restoreSelection[k])
+  try {
+    const res = await HttpManager.post('/client/file/remote-scopes', {
+      email: currentUser.email
+    })
+    const data = res?.data ?? res
+    const list = Array.isArray(data) ? data : []
+    // 标记本地是否已有相同 alias 的任务，避免用户重复创建
+    const existingAliases = new Set(
+      tasks.value.map((t) => normalizeTaskAlias(t.alias)).filter(Boolean)
+    )
+    remoteScopes.value = list.map((s) => ({
+      ...s,
+      localExists: existingAliases.has(normalizeTaskAlias(s.alias))
+    }))
+    // 默认勾选所有本地没有的 scope
+    remoteScopes.value.forEach((s) => {
+      restoreSelection[s.scopeName] = !s.localExists
+    })
+  } catch (err) {
+    restoreError.value = err.message || '无法获取远端任务列表'
+  } finally {
+    restoreLoading.value = false
+  }
+}
+
+const closeRestoreModal = () => {
+  if (restoreRunning.value) return
+  showRestoreModal.value = false
+}
+
+const pickRestoreBasePath = async () => {
+  if (!window.electron?.ipcRenderer) {
+    alert('非桌面客户端环境，请在桌面端选择路径')
+    return
+  }
+  const result = await window.electron.ipcRenderer.invoke('select-folder')
+  if (result) restoreBasePath.value = result
+}
+
+const joinLocalPath = (base, ...segments) => {
+  const sep = base.includes('\\') ? '\\' : '/'
+  const trimmed = base.replace(/[\\/]+$/, '')
+  return [trimmed, ...segments].join(sep)
+}
+
+const doRestore = async () => {
+  if (restoreRunning.value) return
+  if (!restoreBasePath.value) {
+    restoreError.value = '请选择本地基础目录'
+    return
+  }
+  restoreRunning.value = true
+  restoreError.value = ''
+  const selected = remoteScopes.value.filter((s) => restoreSelection[s.scopeName] && !s.localExists)
+  try {
+    for (let i = 0; i < selected.length; i++) {
+      const scope = selected[i]
+      restoreProgress.value = `(${i + 1}/${selected.length}) 创建任务 ${scope.alias}...`
+      // 单文件 task 的本地路径要落到具体文件上，目录 task 则落到目录。
+      const localTaskPath = scope.isDir
+        ? joinLocalPath(restoreBasePath.value, scope.alias, scope.rootName)
+        : joinLocalPath(restoreBasePath.value, scope.alias, scope.rootName)
+      const createRes = await HttpManager.post('/client/sync/update', {
+        fileId: null,
+        email: currentUser.email,
+        path: localTaskPath,
+        alias: scope.alias,
+        remoteHost: '',
+        scheduled: '',
+        cdcAlg: 'FastCDC',
+        description: '从远端恢复',
+        isDir: scope.isDir
+      })
+      const createdTask = createRes?.data ?? createRes
+      const createdId = createdTask?.id ?? Date.now()
+      tasks.value.push({
+        id: createdId,
+        alias: scope.alias,
+        path: localTaskPath,
+        isDir: scope.isDir,
+        isSync: false,
+        cdcAlg: 'FastCDC',
+        description: '从远端恢复',
+        updateTime: new Date().toISOString(),
+        userId: currentUser.id
+      })
+      restoreProgress.value = `(${i + 1}/${selected.length}) 下行同步 ${scope.alias}...`
+      await HttpManager.post(
+        '/client/sync/download',
+        {
+          fileId: String(createdId),
+          email: currentUser.email,
+          path: localTaskPath
+        },
+        { timeout: 0 }
+      )
+    }
+    restoreProgress.value = '全部完成'
+    setTimeout(() => {
+      showRestoreModal.value = false
+      restoreRunning.value = false
+      loadTasks()
+    }, 800)
+  } catch (err) {
+    restoreError.value = err.message || '恢复过程出错'
+    restoreRunning.value = false
+  }
 }
 
 const navigateInto = async (task) => {
@@ -2012,6 +2209,125 @@ svg {
 
 .empty-list p {
   margin: 0;
+}
+
+.restore-btn {
+  margin-top: 14px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.restore-btn:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+  border-color: var(--accent, #5366ff);
+}
+
+.restore-panel {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 26px;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+
+.restore-panel h3 {
+  margin: 0 0 6px;
+}
+
+.restore-sub {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.restore-sub code {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.restore-loading,
+.restore-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px 0;
+}
+
+.restore-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.restore-row {
+  display: grid;
+  grid-template-columns: 18px 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.restore-row.active {
+  border-color: var(--accent, #5366ff);
+  background: rgba(83, 102, 255, 0.06);
+}
+
+.restore-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.restore-icon.folder {
+  background: rgba(247, 184, 1, 0.18);
+}
+
+.restore-icon.file {
+  background: rgba(83, 102, 255, 0.14);
+}
+
+.restore-info strong {
+  display: block;
+  font-size: 14px;
+}
+
+.restore-info small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.restore-exists {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.restore-path-row {
+  margin-bottom: 12px;
+}
+
+.restore-progress {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .task-list {

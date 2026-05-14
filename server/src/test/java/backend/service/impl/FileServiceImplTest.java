@@ -34,6 +34,31 @@ class FileServiceImplTest {
   }
 
   @Test
+  void listUserScopesReportsAliasRootNameAndIsDir() throws Exception {
+    FileServiceImpl service = serviceWithTempStorage();
+    // 新布局：一个文件夹 scope + 一个单文件 scope
+    Path emailDir = tempDir.resolve("alice@example.com");
+    Files.createDirectories(emailDir.resolve("Work").resolve("Docs"));
+    Files.writeString(
+        emailDir.resolve("Work").resolve("Docs").resolve("a.txt"), "x", StandardCharsets.UTF_8);
+    Files.createDirectories(emailDir.resolve("MyNote"));
+    Files.writeString(emailDir.resolve("MyNote").resolve("MyNote"), "n", StandardCharsets.UTF_8);
+
+    List<backend.util.RemoteScope> scopes = service.listUserScopes("alice@example.com");
+
+    assertEquals(2, scopes.size());
+    assertEquals("MyNote", scopes.get(0).alias);
+    assertEquals("MyNote", scopes.get(0).rootName);
+    assertFalse(scopes.get(0).isDir);
+    assertEquals("alice@example.com/MyNote/MyNote", scopes.get(0).scopeName);
+
+    assertEquals("Work", scopes.get(1).alias);
+    assertEquals("Docs", scopes.get(1).rootName);
+    assertTrue(scopes.get(1).isDir);
+    assertEquals("alice@example.com/Work/Docs", scopes.get(1).scopeName);
+  }
+
+  @Test
   void compareUsesNewAliasScopeWithoutTouchingOldEmailRootPath() throws Exception {
     FileServiceImpl service = serviceWithTempStorage();
     Path oldFile = tempDir.resolve("user@example.com").resolve("Documents").resolve("old.txt");

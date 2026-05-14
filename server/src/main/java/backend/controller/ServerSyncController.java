@@ -1,7 +1,9 @@
 package backend.controller;
 
 import backend.exception.model.BaseException;
+import backend.migration.ScopeStorageMigrationRunner;
 import backend.service.FileService;
+import backend.util.RemoteScope;
 import backend.util.ResultEntity;
 import backend.util.SyncStyle;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -25,6 +27,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class ServerSyncController {
 
   @Autowired public FileService fileService;
+
+  @Autowired(required = false)
+  private ScopeStorageMigrationRunner migrationRunner;
 
   @PostMapping("/compare")
   public ResponseEntity<ResultEntity<Object>> compareFile(@RequestBody Map<String, Object> map)
@@ -101,5 +106,45 @@ public class ServerSyncController {
     long bytes = fileService.uploadFile(storagePath, fileName, request.getInputStream());
 
     return ResultEntity.success(200, "File uploaded successfully", Map.of("bytes", bytes));
+  }
+
+  /**
+   * 列出某用户在 bucket 中已有的全部 scope，供"刚装客户端、本地没有 task"的场景从远端恢复任务列表。
+   *
+   * <p>请求体：{ "email": "user@example.com" }
+   */
+  @PostMapping("/list-scopes")
+  public ResponseEntity<ResultEntity<Object>> listUserScopes(@RequestBody Map<String, String> map) {
+    String email = map.get("email");
+    if (email == null || email.isBlank()) throw new BaseException("email is required", 400);
+
+    List<RemoteScope> scopes = fileService.listUserScopes(email);
+    return ResultEntity.success(200, "User scopes fetched", scopes);
+  }
+
+  /**
+   * 手动触发一次 legacy storage 迁移。startup 阶段已经自动跑过一次；这个端点用于「迁移因为底层桶慢/异常没完成」时安全重跑，
+   * 因为迁移本身是幂等的，重复跑只会处理上次没搬完的剩余条目。
+   */
+  @PostMapping("/migrate-legacy-storage")
+  public ResponseEntity<ResultEntity<Object>> migrateLegacyStorage() throws IOException {
+    if (migrationRunner == null) {
+      throw new BaseException("Migration runner not active (non-docker profile)", 409);
+    }
+    ScopeStorageMigrationRunner.MigrationReport report = migrationRunner.migrateAll();
+    return ResultEntity.success(
+        200,
+        "Migration finished",
+        Map.of(
+            "scanned",
+            report.scanned,
+            "migrated",
+            report.migrated,
+            "skipped",
+            report.skipped,
+            "failed",
+            report.failed,
+            "groupScopes",
+            report.groupScopes));
   }
 }
