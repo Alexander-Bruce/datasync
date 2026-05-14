@@ -15,7 +15,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.logging.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
@@ -27,7 +26,8 @@ import org.springframework.stereotype.Component;
 @Profile("docker")
 public class ScopeStorageMigrationRunner implements ApplicationRunner {
 
-  private static final Logger logger = Logger.getLogger(ScopeStorageMigrationRunner.class.getName());
+  private static final Logger logger =
+      Logger.getLogger(ScopeStorageMigrationRunner.class.getName());
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Value("${spring.netty.server.basePath}")
@@ -77,8 +77,7 @@ public class ScopeStorageMigrationRunner implements ApplicationRunner {
 
           MigrationOutcome outcome =
               migrationCache.computeIfAbsent(
-                  oldScope,
-                  key -> migrateStoragePath(baseDir.toPath(), key, migrated));
+                  oldScope, key -> migrateStoragePath(baseDir.toPath(), key, migrated));
 
           if (outcome.isSuccess()) {
             newScopes.add(migrated);
