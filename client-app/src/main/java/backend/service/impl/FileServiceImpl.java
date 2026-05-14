@@ -531,14 +531,18 @@ public class FileServiceImpl implements FileService {
     List<SubFile> result = new ArrayList<>();
     Queue<QueueItem> queue = new LinkedList<>();
 
-    // 只将 root 的直接子节点入队，root 本身已在 File 表中，不进 SubFile
     if (root.isDirectory()) {
+      // 目录任务：root 本身已在 File 表中，只把其直接子节点入队
       File[] children = root.listFiles();
       if (children != null) {
         for (File child : children) {
           queue.offer(new QueueItem(child, child.getName(), 0, ""));
         }
       }
+    } else if (root.isFile()) {
+      // 单文件任务：File 表里的 root 自身即任务文件；为其在 SubFile 表登记一条记录，
+      // 这样列表 UI 能像目录任务一样列出该条目，下行/删除等流程亦可统一处理。
+      queue.offer(new QueueItem(root, root.getName(), 0, ""));
     }
 
     while (!queue.isEmpty()) {

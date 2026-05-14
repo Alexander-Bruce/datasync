@@ -1114,8 +1114,17 @@ const confirmBatch = async () => {
 const addScope = async (group) => {
   const input = (addScopeInputs[group.id] || '').trim()
   if (!input) return
-  const selectedTask = selectedScopeTasks[group.id]
-  const scopeName = selectedTask ? getScopeKey(selectedTask) : currentUser.email + '/' + input
+  // 新布局下 scope 名形如 email/alias/rootName，必须从任务中拿。若用户没从下拉里选，按 alias 在本地任务列表里精确匹配一次，
+  // 兜不到就直接报错——不再回退到旧的 email/X 双段格式，避免在桶里生成永远不会有数据进来的孤儿 scope。
+  let task = selectedScopeTasks[group.id]
+  if (!task) {
+    task = userTasks.value.find((t) => t.alias && t.alias.trim() === input)
+  }
+  if (!task) {
+    setCardError(group.id, '找不到对应的同步任务，请从下拉中选择已存在的任务')
+    return
+  }
+  const scopeName = getScopeKey(task)
   opLoading[`${group.id}_addScope`] = true
   try {
     const res = await HttpManager.post('/client/group/add-scope', {
