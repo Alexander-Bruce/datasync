@@ -64,7 +64,7 @@ public class FileServiceImpl implements FileService {
 
     if (file == null) return false;
 
-    boolean success = sync(file.getPath(), email, file.getCdcAlg());
+    boolean success = sync(file, email);
 
     if (success) {
       fileMapper.updateSyncById(file.getId(), true);
@@ -179,7 +179,7 @@ public class FileServiceImpl implements FileService {
     if (file == null) return false;
 
     // 检查此 scope 是否还被某个有成员的群组共享
-    String scopeName = email + "/" + new File(file.getPath()).getName();
+    String scopeName = buildScopeName(email, file);
     Boolean deletable =
         HttpJsonClient.postForData(
             "server/group/check-scope",
@@ -218,7 +218,7 @@ public class FileServiceImpl implements FileService {
     }
 
     // 用 email/folderName 作为服务端同步范围名称（与上行同步保持一致）
-    String scopeName = email + "/" + new File(file.getPath()).getName();
+    String scopeName = buildScopeName(email, file);
 
     // ── 第一步：获取服务端文件路径列表（不含内容） ──
     List<String> fileList =
@@ -232,33 +232,9 @@ public class FileServiceImpl implements FileService {
       return true;
     }
 
-    File rootDir = new File(file.getPath());
-    rootDir.mkdirs();
-
-    // ── 第二步：逐文件分片下载原始字节，写入本地 ──
-    for (String relativePath : fileList) {
-      File target = new File(rootDir, relativePath);
-      if (target.getParentFile() != null) {
-        target.getParentFile().mkdirs();
-      }
-
-      byte[] bytes;
-      try {
-        bytes =
-            HttpJsonClient.downloadBytes(
-                "server/file/download/file",
-                Map.of("scopeName", scopeName, "relativePath", relativePath));
-      } catch (RuntimeException e) {
-        logger.warning("下载文件失败，跳过: " + relativePath + " - " + e.getMessage());
-        return false;
-      }
-
-      try (FileOutputStream fos = new FileOutputStream(target)) {
-        fos.write(bytes);
-      } catch (IOException e) {
-        logger.warning("写入文件失败，跳过: " + target.getAbsolutePath() + " - " + e.getMessage());
-        return false;
-      }
+    File singleFileTarget = Boolean.TRUE.equals(file.getIsDir()) ? null : new File(file.getPath());
+    if (!writeDownloadedFiles(scopeName, fileList, new File(file.getPath()), singleFileTarget)) {
+      return false;
     }
 
     fileMapper.updateSyncById(file.getId(), true);
@@ -323,6 +299,11 @@ public class FileServiceImpl implements FileService {
 
   @Override
   public boolean downloadScope(String scopeName, String localPath) {
+    return downloadScope(scopeName, localPath, null);
+  }
+
+  @Override
+  public boolean downloadScope(String scopeName, String localPath, String relativePath) {
     List<String> fileList =
         HttpJsonClient.postForData(
             "server/file/download",
@@ -331,11 +312,34 @@ public class FileServiceImpl implements FileService {
 
     if (fileList == null || fileList.isEmpty()) return true;
 
-    File rootDir = new File(localPath);
-    rootDir.mkdirs();
+    return writeDownloadedFiles(
+        scopeName, filterDownloadList(fileList, relativePath), new File(localPath), null);
+  }
+
+  private List<String> filterDownloadList(List<String> fileList, String requestedRelativePath) {
+    String requested = normalizeRelativePath(requestedRelativePath);
+    if (requested.isEmpty()) return fileList;
+
+    if (fileList.contains(requested)) {
+      return List.of(requested);
+    }
+
+    String prefix = requested.endsWith("/") ? requested : requested + "/";
+    return fileList.stream().filter(path -> path.startsWith(prefix)).toList();
+  }
+
+  private boolean writeDownloadedFiles(
+      String scopeName, List<String> fileList, File rootDir, File singleFileTarget) {
+    if (fileList == null || fileList.isEmpty()) return true;
+
+    if (singleFileTarget == null) {
+      rootDir.mkdirs();
+    } else if (singleFileTarget.getParentFile() != null) {
+      singleFileTarget.getParentFile().mkdirs();
+    }
 
     for (String relativePath : fileList) {
-      File target = new File(rootDir, relativePath);
+      File target = singleFileTarget == null ? new File(rootDir, relativePath) : singleFileTarget;
       if (target.getParentFile() != null) target.getParentFile().mkdirs();
 
       byte[] bytes;
@@ -345,22 +349,24 @@ public class FileServiceImpl implements FileService {
                 "server/file/download/file",
                 Map.of("scopeName", scopeName, "relativePath", relativePath));
       } catch (RuntimeException e) {
-        logger.warning("下载 group 文件失败，跳过: " + relativePath + " - " + e.getMessage());
+        logger.warning("下载文件失败，跳过: " + relativePath + " - " + e.getMessage());
         return false;
       }
 
       try (FileOutputStream fos = new FileOutputStream(target)) {
         fos.write(bytes);
       } catch (IOException e) {
-        logger.warning("写入 group 文件失败: " + target.getAbsolutePath() + " - " + e.getMessage());
+        logger.warning("写入文件失败: " + target.getAbsolutePath() + " - " + e.getMessage());
         return false;
       }
     }
     return true;
   }
 
-  public boolean sync(String path, String email, String className) {
+  public boolean sync(backend.model.entity.File task, String email) {
 
+    String path = task.getPath();
+    String className = task.getCdcAlg();
     File rootFile = new File(path);
     if (!rootFile.exists()) return false;
 
@@ -389,11 +395,11 @@ public class FileServiceImpl implements FileService {
 
     processFiles(baseDir, rootFile, cdcManager, fileList);
 
-    // Prefix each storagePath with email so server stores under email/folderName
-    String scopePrefix = email + "/";
+    String storageRoot = joinRemotePath(email, task.getAlias());
+    String scopeName = buildScopeName(email, task);
     for (SyncStyle s : fileList) {
       String normalized = s.storagePath != null ? s.storagePath.replace("\\", "/") : "";
-      s.storagePath = normalized.isEmpty() ? email : scopePrefix + normalized;
+      s.storagePath = normalized.isEmpty() ? storageRoot : joinRemotePath(storageRoot, normalized);
     }
 
     HttpJsonClient.postForData(
@@ -401,7 +407,9 @@ public class FileServiceImpl implements FileService {
         Map.of(
             "list", fileList,
             "path", path,
-            "email", email),
+            "email", email,
+            "scopeName", scopeName,
+            "isDir", Boolean.TRUE.equals(task.getIsDir())),
         new TypeReference<List<SyncStyle>>() {});
 
     if (fileList.isEmpty()) return true;
@@ -431,6 +439,36 @@ public class FileServiceImpl implements FileService {
       }
     }
     return true;
+  }
+
+  private String buildScopeName(String email, backend.model.entity.File task) {
+    return joinRemotePath(email, task.getAlias(), getRootName(task.getPath()));
+  }
+
+  private String getRootName(String path) {
+    return new File(path).getName();
+  }
+
+  private String joinRemotePath(String... parts) {
+    List<String> normalizedParts = new ArrayList<>();
+    for (String part : parts) {
+      String normalized = normalizeRelativePath(part);
+      if (!normalized.isBlank()) {
+        normalizedParts.add(normalized);
+      }
+    }
+    return String.join("/", normalizedParts);
+  }
+
+  private String normalizeRelativePath(String path) {
+    String normalized = path == null ? "" : path.replace("\\", "/").trim();
+    while (normalized.startsWith("/")) {
+      normalized = normalized.substring(1);
+    }
+    while (normalized.endsWith("/")) {
+      normalized = normalized.substring(0, normalized.length() - 1);
+    }
+    return normalized;
   }
 
   private String normalizeStoragePath(String storagePath) {

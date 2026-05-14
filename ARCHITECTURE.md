@@ -66,16 +66,16 @@ Upload sync:
 
 1. `sync-app` calls `POST /client/sync/upload`.
 2. `client-app` loads the local sync task, chunks files with the selected CDC algorithm.
-3. Each `SyncStyle.storagePath` is prefixed with `email/` so files are stored under `basePath/email/folderName/...`. This namespacing prevents two users with identically named folders from overwriting each other's data.
-4. `client-app` sends the file list (with email) to `POST /server/file/compare`; `server` uses `email/folderName` as the scope directory.
+3. Each `SyncStyle.storagePath` is prefixed with `email/alias/` so files are stored under `basePath/email/alias/rootName/...`. This namespacing prevents two tasks with identically named files or folders from overwriting each other's data.
+4. `client-app` sends the file list, `scopeName`, and task type to `POST /server/file/compare`; `server` uses the task alias container as the cleanup boundary.
 5. `client-app` uploads changed files to `POST /server/file/upload` using `application/octet-stream`; `server` writes files to the email-namespaced path via `.part` temp files.
 6. `client-app` marks local SQLite `File` and `SubFile` records as synced only after the HTTP upload phase succeeds.
 
 Download sync:
 
 1. `sync-app` calls `POST /client/sync/download` or group scope download endpoints.
-2. `client-app` constructs `scopeName = email + "/" + folderName` and asks `server` for that scope.
-3. `server` enumerates `basePath/email/folderName/` and returns file relative-path list.
+2. `client-app` constructs `scopeName = email + "/" + alias + "/" + rootName` and asks `server` for that scope.
+3. `server` enumerates `basePath/email/alias/rootName/` for folders or returns the single file at `basePath/email/alias/rootName`.
 4. `client-app` downloads each file and writes it to the local path, then updates SQLite state.
 
 Group sharing:
@@ -87,16 +87,16 @@ Group sharing:
    - **Admin**: can add/remove regular members and manage scopes; cannot manage other admins.
    - **Member**: read-only (sees the group; cannot mutate).
    - Owner is always unique and is not listed in the `admins` array — authorization logic checks owner separately.
-4. `groups.json` Group schema: `{ id, name, ownerEmail, admins: [], members: [], scopes: [] }` where each scope value is `ownerEmail/folderName` (e.g. `alice@example.com/Documents`).
-5. Scope display: `sync-app` strips the `ownerEmail/` prefix before showing scope names in `GroupPage`, `Dashboard`, and `GroupExplorer` breadcrumbs. The full `email/folderName` key is always sent to the API.
+4. `groups.json` Group schema: `{ id, name, ownerEmail, admins: [], members: [], scopes: [] }` where each scope value is `ownerEmail/alias/rootName` (e.g. `alice@example.com/Work Docs/Documents`).
+5. Scope display: `sync-app` strips the `ownerEmail/` prefix before showing scope names in `GroupPage`, `Dashboard`, and `GroupExplorer` breadcrumbs. The full `email/alias/rootName` key is always sent to the API.
 6. Member add supports fuzzy search (`/server/user/search` queries MySQL `LIKE` on email/username) and batch file import (client-side `.txt`/`.csv` parsing → `/client/group/add-members`).
 7. Single-member add in the UI should be selected-user-first: search returns concrete user cards, the chosen card supplies the member email, and free-text values must not be submitted as if they were valid users.
 8. Server-side group member mutations still own correctness. Direct calls and batch imports must validate target users against the central user store before writing strings into `groups.json`.
-9. Group file browsing is built from server-side scope traversal over `basePath/email/folderName/`.
+9. Group file browsing is built from server-side scope traversal over `basePath/email/alias/rootName/`; single-file scopes return one file node.
 
 Task deletion guard:
 
-1. Before deleting a sync task, `client-app` calls `POST /server/group/check-scope` with `scopeName = email/folderName`.
+1. Before deleting a sync task, `client-app` calls `POST /server/group/check-scope` with `scopeName = email/alias/rootName`.
 2. If any group contains that scope, the server returns `false`.
 3. `client-app` throws `BaseException(409)` with a human-readable message; `sync-app` displays the error in the delete-confirmation dialog.
 4. The user must delete the group or remove the scope from the group before the task can be deleted.
@@ -123,8 +123,8 @@ Dashboard search:
 - `client-app` owns local filesystem and SQLite side effects; tests must use temp directories and disposable SQLite files.
 - `server` owns central storage, MySQL integration, group metadata, HTTP file storage, and legacy Netty receive/reconstruction behavior.
 - Upload/download paths are data-loss-sensitive. Preserve path normalization, scope derivation, and overwrite/delete semantics deliberately.
-- **Scope namespacing** — server storage paths must always use the format `basePath/email/folderName/`. Never write to `basePath/folderName/` directly; that was the pre-fix format and causes multi-user collisions. The `email` used is the task owner's login email, taken from the authenticated session — not a user-supplied string.
-- **Scope key format** — `Group.scopes` entries and all API `scopeName` parameters must be `email/folderName` strings. Never store bare folder names; doing so breaks both storage routing and the deletion guard.
+- **Scope namespacing** — server storage paths must always use the format `basePath/email/alias/rootName/` for folders or `basePath/email/alias/fileName` for single files. Never write to `basePath/email/rootName/` or `basePath/rootName/` directly; those formats can collide across tasks or users.
+- **Scope key format** — `Group.scopes` entries and all API `scopeName` parameters must be `email/alias/rootName` strings. Never store bare names or `email/rootName`; doing so breaks both storage routing and the deletion guard.
 - **Task deletion guard** — `client-app.FileServiceImpl.deleteFileTask()` must call `POST /server/group/check-scope` before removing local SQLite records. Bypassing this check can leave group members with a dangling scope that points to deleted server storage.
 - Keep legacy Netty encryption compatible: AES-256-GCM per packet and RSA-OAEP key exchange must remain symmetric between client and server.
 - REST contracts documented in `API.md` should remain backward compatible unless the change updates callers and docs together.

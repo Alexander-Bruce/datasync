@@ -133,7 +133,7 @@
 
           <!-- Admin chips -->
           <div v-if="(group.admins || []).length > 0" class="sub-label">管理员</div>
-          <div class="members-list" v-if="(group.admins || []).length > 0">
+          <div v-if="(group.admins || []).length > 0" class="members-list">
             <div
               v-for="a in group.admins || []"
               :key="'admin-' + a"
@@ -793,7 +793,7 @@ let searchTimers = {}
 const getScopeFolderName = (task) =>
   (task.path || '').replace(/\\/g, '/').split('/').filter(Boolean).pop() || task.alias || ''
 
-const getScopeKey = (task) => currentUser.email + '/' + getScopeFolderName(task)
+const getScopeKey = (task) => [currentUser.email, task.alias, getScopeFolderName(task)].join('/')
 
 const scopeDisplayName = (scope) => {
   const idx = scope.indexOf('/')

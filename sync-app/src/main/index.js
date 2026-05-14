@@ -105,6 +105,19 @@ app.whenReady().then(() => {
     return filePaths[0]
   })
 
+  ipcMain.handle('select-file', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select sync file',
+      properties: ['openFile'],
+      buttonLabel: 'Select file'
+    })
+
+    if (canceled || filePaths.length === 0) {
+      return null
+    }
+    return filePaths[0]
+  })
+
   ipcMain.on('open-file', (_, payload) => {
     if (typeof payload === 'object' && payload.basePath && payload.relativePath) {
       const fullPath = path.join(payload.basePath, payload.relativePath)

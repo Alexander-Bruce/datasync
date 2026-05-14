@@ -347,8 +347,18 @@ public class GroupServiceImpl implements GroupService {
 
   private List<GroupFileNode> listScopeFiles(String scopeName) {
     File scopeDir = new File(basePath, scopeName);
-    if (!scopeDir.exists() || !scopeDir.isDirectory()) return new ArrayList<>();
     List<GroupFileNode> result = new ArrayList<>();
+    if (!scopeDir.exists()) return result;
+    if (scopeDir.isFile() && !scopeDir.getName().endsWith(".part")) {
+      result.add(
+          GroupFileNode.builder()
+              .name(scopeDir.getName())
+              .relativePath(scopeDir.getName())
+              .dir(false)
+              .build());
+      return result;
+    }
+    if (!scopeDir.isDirectory()) return result;
     collectFiles(scopeDir, scopeDir, result);
     return result;
   }

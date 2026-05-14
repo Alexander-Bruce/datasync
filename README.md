@@ -76,8 +76,8 @@ DataSync consists of three sub-modules:
 - **Legacy Netty Transport**: Netty sync classes remain available for self-hosted deployments that expose raw TCP ports
 - **Local Metadata**: SQLite on the client side for managing file trees and sync state
 - **Scheduled Sync**: Cron expression support for automated sync policies
-- **Group Sharing**: Add members by email, share sync task folders to groups; members can browse and pull down
-- **Multi-User Isolated Storage**: Server stores files under `email/folderName` namespaces, preventing cross-user collisions
+- **Group Sharing**: Add members by email, share sync task files or folders to groups; members can browse and pull down
+- **Multi-Task Isolated Storage**: Server stores files under `email/alias/rootName` namespaces, preventing cross-task and cross-user collisions
 - **Shared Deletion Guard**: Deleting a sync task is blocked while its folder is shared to a group with active members
 
 ---

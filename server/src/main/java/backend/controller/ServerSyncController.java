@@ -32,9 +32,13 @@ public class ServerSyncController {
 
     String email = (String) map.get("email");
     String path = (String) map.get("path");
+    String scopeName = (String) map.get("scopeName");
+    boolean isDir = Boolean.TRUE.equals(map.get("isDir"));
 
     if (email == null || email.isBlank()) throw new BaseException("email is required", 400);
     if (path == null || path.isBlank()) throw new BaseException("path is required", 400);
+    if (scopeName == null || scopeName.isBlank())
+      throw new BaseException("scopeName is required", 400);
     Object listObj = map.get("list");
     ObjectMapper objectMapper = new ObjectMapper();
 
@@ -44,7 +48,9 @@ public class ServerSyncController {
         objectMapper.readValue(json, new TypeReference<List<SyncStyle>>() {});
 
     return ResultEntity.success(
-        200, "File compare successfully", fileService.compare(email, path, fileList));
+        200,
+        "File compare successfully",
+        fileService.compare(email, path, scopeName, isDir, fileList));
   }
 
   /**

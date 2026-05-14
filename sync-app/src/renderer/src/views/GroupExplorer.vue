@@ -152,7 +152,7 @@
           class="download-btn"
           :class="{ loading: isDownloading }"
           title="下行同步当前文件夹到本地"
-          @click="downloadCurrent"
+          @click="downloadCurrent()"
         >
           <svg v-if="isDownloading" class="spin-icon" viewBox="0 0 24 24" fill="none">
             <circle
@@ -417,7 +417,7 @@ const navigateToBreadcrumb = (idx) => {
   selectedPath.value = null
 }
 
-const downloadCurrent = async () => {
+const downloadCurrent = async (relativePath = currentPath.value) => {
   if (isDownloading.value) return
   isDownloading.value = true
 
@@ -441,7 +441,8 @@ const downloadCurrent = async () => {
     await HttpManager.post('/client/group/download-scope', {
       email: userInfo.email,
       scopeName: scopeName.value,
-      localPath
+      localPath,
+      relativePath
     })
   } catch (err) {
     console.error('下行同步失败', err)
@@ -472,8 +473,9 @@ const ctxEnter = () => {
 }
 
 const ctxDownload = async () => {
+  const targetPath = contextMenu.file?.relativePath || currentPath.value
   closeContextMenu()
-  await downloadCurrent()
+  await downloadCurrent(targetPath)
 }
 
 // ── Utils ─────────────────────────────────────────────────

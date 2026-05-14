@@ -45,4 +45,6 @@ public interface FileService {
   void refreshSubFiles(int fileId);
 
   boolean downloadScope(String scopeName, String localPath);
+
+  boolean downloadScope(String scopeName, String localPath, String relativePath);
 }

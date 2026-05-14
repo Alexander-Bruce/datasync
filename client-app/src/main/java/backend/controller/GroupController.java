@@ -109,8 +109,9 @@ public class GroupController {
   public ResponseEntity<ResultEntity<Object>> downloadScope(@RequestBody Map<String, String> map) {
     String scopeName = map.get("scopeName");
     String localPath = map.get("localPath");
+    String relativePath = map.get("relativePath");
 
-    CompletableFuture.runAsync(() -> fileService.downloadScope(scopeName, localPath));
+    CompletableFuture.runAsync(() -> fileService.downloadScope(scopeName, localPath, relativePath));
 
     return ResultEntity.success(200, "Download started", null);
   }

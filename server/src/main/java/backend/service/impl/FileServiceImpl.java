@@ -22,20 +22,23 @@ public class FileServiceImpl implements FileService {
 
   @Override
   public List<SyncStyle> compare(
-      String email, String clientRawPath, List<SyncStyle> clientFileList) {
+      String email,
+      String clientRawPath,
+      String scopeName,
+      boolean isDir,
+      List<SyncStyle> clientFileList) {
 
     // 1. 获取服务端根目录
-    File serverBase = new File(basePath);
-    if (!serverBase.exists()) {
-      serverBase.mkdirs();
-    }
+    File serverBase = serverBaseDir();
 
-    String syncScopeName = email + "/" + getFileNameFromPath(clientRawPath);
-
-    File syncTargetDir = new File(serverBase, syncScopeName);
-    if (!syncTargetDir.exists()) {
-      syncTargetDir.mkdirs();
+    File syncTarget = resolveStoragePath(scopeName);
+    if (isDir) {
+      syncTarget.mkdirs();
+    } else if (syncTarget.getParentFile() != null) {
+      syncTarget.getParentFile().mkdirs();
     }
+    File taskContainer =
+        syncTarget.getParentFile() == null ? syncTarget : syncTarget.getParentFile();
 
     // 2. 构建客户端文件索引
     Set<String> clientFileIndex = new HashSet<>();
@@ -50,7 +53,13 @@ public class FileServiceImpl implements FileService {
 
     // 3. 递归扫描服务端
     List<File> existingServerFiles = new ArrayList<>();
-    scanServerFiles(syncTargetDir, existingServerFiles);
+    if (taskContainer.isFile()) {
+      if (!taskContainer.getName().endsWith(".part")) {
+        existingServerFiles.add(taskContainer);
+      }
+    } else if (taskContainer.isDirectory()) {
+      scanServerFiles(taskContainer, existingServerFiles);
+    }
 
     // 4. 执行反向对比与删除
     for (File serverFile : existingServerFiles) {
@@ -67,25 +76,11 @@ public class FileServiceImpl implements FileService {
     }
 
     // 5. 清理空目录 -> 修复点 C：只清理本次同步的目标文件夹
-    cleanEmptyDirectories(syncTargetDir);
+    if (taskContainer.isDirectory()) {
+      cleanEmptyDirectories(taskContainer);
+    }
 
     return clientFileList;
-  }
-
-  /** 跨平台从路径字符串中提取文件名/最后一级目录名 */
-  private String getFileNameFromPath(String path) {
-    if (path == null || path.isEmpty()) return "unknown";
-
-    String normalized = path.replace("\\", "/");
-
-    if (normalized.endsWith("/")) {
-      normalized = normalized.substring(0, normalized.length() - 1);
-    }
-    int lastSlash = normalized.lastIndexOf("/");
-    if (lastSlash >= 0) {
-      return normalized.substring(lastSlash + 1);
-    }
-    return normalized;
   }
 
   /** 生成标准化的文件唯一标识 Key */
@@ -101,6 +96,30 @@ public class FileServiceImpl implements FileService {
       normalizedDir = normalizedDir.substring(0, normalizedDir.length() - 1);
 
     return normalizedDir + "/" + fileName;
+  }
+
+  private File serverBaseDir() {
+    File serverBase = new File(basePath);
+    if (!serverBase.exists()) {
+      serverBase.mkdirs();
+    }
+    return serverBase;
+  }
+
+  private File resolveStoragePath(String storagePath) {
+    File serverBase = serverBaseDir();
+    File target = new File(serverBase, normalizeStoragePath(storagePath));
+
+    try {
+      String canonicalBase = serverBase.getCanonicalPath();
+      String canonicalTarget = target.getCanonicalPath();
+      if (!isInside(canonicalBase, canonicalTarget)) {
+        throw new SecurityException("Illegal storagePath: " + storagePath);
+      }
+      return target;
+    } catch (IOException e) {
+      throw new RuntimeException("路径解析失败: " + e.getMessage(), e);
+    }
   }
 
   /** 递归获取服务端目录下所有文件 */
@@ -161,24 +180,19 @@ public class FileServiceImpl implements FileService {
 
     List<String> result = new ArrayList<>();
 
-    File serverBase = new File(basePath);
-    File scopeDir = new File(serverBase, scopeName);
+    File scopeDir = resolveStoragePath(scopeName);
 
-    try {
-      String canonicalBase = serverBase.getCanonicalPath();
-      String canonicalScope = scopeDir.getCanonicalPath();
-      if (!canonicalScope.startsWith(canonicalBase + File.separator)
-          && !canonicalScope.equals(canonicalBase)) {
-        throw new SecurityException("非法 scopeName: " + scopeName);
-      }
-    } catch (IOException e) {
-      throw new RuntimeException("路径解析失败: " + e.getMessage(), e);
-    }
-
-    if (!scopeDir.exists() || !scopeDir.isDirectory()) {
-      logger.info("下行同步：范围目录不存在 " + scopeDir.getAbsolutePath());
+    if (!scopeDir.exists()) {
+      logger.info("下行同步：范围不存在 " + scopeDir.getAbsolutePath());
       return result;
     }
+
+    if (scopeDir.isFile()) {
+      result.add(scopeDir.getName());
+      return result;
+    }
+
+    if (!scopeDir.isDirectory()) return result;
 
     collectRelativePaths(scopeDir, scopeDir, result);
     return result;
@@ -191,18 +205,18 @@ public class FileServiceImpl implements FileService {
     if (relativePath == null || relativePath.isBlank())
       throw new SecurityException("relativePath 不能为空");
 
-    File serverBase = new File(basePath);
-    File scopeDir = new File(serverBase, scopeName);
+    File scopeDir = resolveStoragePath(scopeName);
 
-    try {
-      String canonicalBase = serverBase.getCanonicalPath();
-      String canonicalScope = scopeDir.getCanonicalPath();
-      if (!canonicalScope.startsWith(canonicalBase + File.separator)
-          && !canonicalScope.equals(canonicalBase)) {
-        throw new SecurityException("非法 scopeName: " + scopeName);
+    if (scopeDir.isFile()) {
+      if (!scopeDir.getName().equals(relativePath)) {
+        throw new SecurityException("非法路径: " + relativePath);
       }
-    } catch (IOException e) {
-      throw new RuntimeException("路径解析失败: " + e.getMessage(), e);
+      try {
+        return Files.readAllBytes(scopeDir.toPath());
+      } catch (IOException e) {
+        throw new RuntimeException(
+            "读取文件失败: " + scopeDir.getAbsolutePath() + " - " + e.getMessage(), e);
+      }
     }
 
     File target = new File(scopeDir, relativePath);
@@ -211,7 +225,7 @@ public class FileServiceImpl implements FileService {
     try {
       String canonicalScope = scopeDir.getCanonicalPath();
       String canonicalTarget = target.getCanonicalPath();
-      if (!canonicalTarget.startsWith(canonicalScope)) {
+      if (!isInside(canonicalScope, canonicalTarget)) {
         throw new SecurityException("非法路径: " + relativePath);
       }
     } catch (IOException e) {

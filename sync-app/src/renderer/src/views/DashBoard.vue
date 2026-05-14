@@ -551,10 +551,10 @@
                   v-model="form.path"
                   type="text"
                   class="ds-input"
-                  placeholder="选择本地文件夹..."
+                  :placeholder="form.isDir ? '选择本地文件夹...' : '选择本地文件...'"
                   readonly
                 />
-                <button class="browse-btn" type="button" @click="selectFolder">
+                <button class="browse-btn" type="button" @click="selectLocalPath">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                     <path
                       stroke-linecap="round"
@@ -562,7 +562,7 @@
                       d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75M4.5 9.75V6A2.25 2.25 0 016.75 3.75h4.379a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44h1.879A2.25 2.25 0 0119.5 9v.75"
                     />
                   </svg>
-                  <span>浏览</span>
+                  <span>{{ form.isDir ? '浏览文件夹' : '浏览文件' }}</span>
                 </button>
               </div>
             </div>
@@ -580,13 +580,13 @@
               <div class="field-group">
                 <label class="field-label">类型</label>
                 <div class="type-toggle">
-                  <button type="button" :class="{ active: form.isDir }" @click="form.isDir = true">
+                  <button type="button" :class="{ active: form.isDir }" @click="setTaskType(true)">
                     文件夹
                   </button>
                   <button
                     type="button"
                     :class="{ active: !form.isDir }"
-                    @click="form.isDir = false"
+                    @click="setTaskType(false)"
                   >
                     单文件
                   </button>
@@ -1154,9 +1154,18 @@ const openEdit = (task) => {
   showModal.value = true
 }
 
-const selectFolder = async () => {
+const setTaskType = (isDir) => {
+  if (form.isDir !== isDir) {
+    form.path = ''
+  }
+  form.isDir = isDir
+}
+
+const selectLocalPath = async () => {
   if (window.electron?.ipcRenderer) {
-    const result = await window.electron.ipcRenderer.invoke('select-folder')
+    const result = await window.electron.ipcRenderer.invoke(
+      form.isDir ? 'select-folder' : 'select-file'
+    )
     if (result) form.path = result
   } else {
     alert('非桌面客户端环境，请在桌面端选择路径')

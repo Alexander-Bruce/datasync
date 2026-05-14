@@ -6,7 +6,8 @@ import java.util.List;
 
 public interface FileService {
 
-  List<SyncStyle> compare(String email, String path, List<SyncStyle> fileList);
+  List<SyncStyle> compare(
+      String email, String path, String scopeName, boolean isDir, List<SyncStyle> fileList);
 
   /**
    * 下行同步第一步：返回服务端该范围下所有文件的相对路径列表（不含内容）。
