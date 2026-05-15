@@ -110,4 +110,13 @@ public class UserServiceImpl implements UserService {
 
     return localUser;
   }
+
+  @Override
+  public User getCachedSession() {
+    User localUser = userMapper.selectCachedSession();
+    if (localUser == null || localUser.getId() == null || localUser.getRefreshToken() == null) {
+      throw new BaseException("Please login again.", 401);
+    }
+    return localUser;
+  }
 }

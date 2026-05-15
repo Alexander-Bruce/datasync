@@ -10,4 +10,6 @@ public interface UserService {
   User update(User user);
 
   User requireLocalSession(Integer id, String email);
+
+  User getCachedSession();
 }

@@ -45,6 +45,31 @@ function readStoredUser() {
   }
 }
 
+function persistUserSession(user) {
+  if (!user?.refreshToken || !user?.email || !user?.id) return false
+  localStorage.setItem('authToken', user.refreshToken)
+  localStorage.setItem(
+    'userInfo',
+    JSON.stringify({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar
+    })
+  )
+  return true
+}
+
+async function restoreCachedSession() {
+  try {
+    const res = await HttpManager.postNoAuth('/client/user/session/current', {})
+    const data = res?.data ?? res
+    return persistUserSession(data)
+  } catch {
+    return false
+  }
+}
+
 async function loadConfigState() {
   if (configState !== null) {
     return configState
@@ -73,12 +98,19 @@ export function clearConfigStateCache() {
 }
 
 router.beforeEach(async (to) => {
-  const token = localStorage.getItem('authToken')
+  let token = localStorage.getItem('authToken')
 
   if (to.path !== '/setup') {
     const configured = await loadConfigState()
     if (!configured) {
       return '/setup'
+    }
+  }
+
+  if (!token) {
+    const restored = await restoreCachedSession()
+    if (restored) {
+      token = localStorage.getItem('authToken')
     }
   }
 

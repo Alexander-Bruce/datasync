@@ -59,6 +59,11 @@ public class UserController {
         200, "Local session verified", userService.requireLocalSession(id, userInfo.get("email")));
   }
 
+  @PostMapping("/session/current")
+  public ResponseEntity<ResultEntity<Object>> currentSession() {
+    return ResultEntity.success(200, "Local session restored", userService.getCachedSession());
+  }
+
   @PostMapping("/search")
   public ResponseEntity<ResultEntity<Object>> searchUsers(@RequestBody Map<String, String> map) {
     Object data =

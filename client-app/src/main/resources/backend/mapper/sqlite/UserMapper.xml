@@ -47,4 +47,14 @@
         SELECT * FROM User WHERE id = #{id}
     </select>
 
+    <select id="selectCachedSession" resultType="backend.model.entity.User">
+        SELECT *
+        FROM User
+        WHERE id IS NOT NULL
+          AND email IS NOT NULL
+          AND refresh_token IS NOT NULL
+          AND refresh_token != ''
+        LIMIT 1
+    </select>
+
 </mapper>

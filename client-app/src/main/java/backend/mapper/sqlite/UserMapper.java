@@ -12,6 +12,8 @@ public interface UserMapper {
 
   User selectById(int id);
 
+  User selectCachedSession();
+
   void deleteByEmail(User user);
 
   boolean update(User user);
