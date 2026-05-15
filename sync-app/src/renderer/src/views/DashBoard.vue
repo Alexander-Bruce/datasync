@@ -1093,7 +1093,7 @@ const loadTasks = async () => {
   try {
     const res = await HttpManager.post('/client/file/brief-list', { email: currentUser.email })
     const data = res?.data ?? res
-    tasks.value = Array.isArray(data) ? data : []
+    tasks.value = Array.isArray(data) ? data.map(normalizeRestoredTaskPath) : []
   } catch (err) {
     loadError.value = err.request ? '无法连接服务器，请确认后端已启动' : err.message || '加载失败'
     tasks.value = [
@@ -1297,6 +1297,24 @@ const joinLocalPath = (base, ...segments) => {
   return [trimmed, ...segments].join(sep)
 }
 
+const normalizeRestoredTaskPath = (task) => {
+  if (!task?.path) return task
+  const parts = task.path.replace(/\\/g, '/').split('/').filter(Boolean)
+  if (parts.length < 2) return task
+  const last = parts[parts.length - 1]
+  const prev = parts[parts.length - 2]
+  if (last !== prev) return task
+
+  const alias = normalizeTaskAlias(task.alias)
+  if (alias && normalizeTaskAlias(last) !== alias) return task
+
+  const sep = task.path.includes('\\') ? '\\' : '/'
+  const corrected = task.path.replace(new RegExp(`[\\\\/]${escapeRegExp(last)}$`), '')
+  return { ...task, path: corrected.replace(/[\\/]/g, sep) }
+}
+
+const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 const doRestore = async () => {
   if (restoreRunning.value) return
   if (!restoreBasePath.value) {
@@ -1311,9 +1329,7 @@ const doRestore = async () => {
       const scope = selected[i]
       restoreProgress.value = `(${i + 1}/${selected.length}) 创建任务 ${scope.alias}...`
       // 单文件 task 的本地路径要落到具体文件上，目录 task 则落到目录。
-      const localTaskPath = scope.isDir
-        ? joinLocalPath(restoreBasePath.value, scope.alias, scope.rootName)
-        : joinLocalPath(restoreBasePath.value, scope.alias, scope.rootName)
+      const localTaskPath = joinLocalPath(restoreBasePath.value, scope.rootName)
       const createRes = await HttpManager.post('/client/sync/update', {
         fileId: null,
         email: currentUser.email,
