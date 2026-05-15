@@ -326,6 +326,51 @@ public class FileServiceImpl implements FileService {
     }
   }
 
+  @Override
+  public boolean deleteScope(String scopeName) {
+    File target = resolveStoragePath(scopeName);
+    if (!target.exists()) {
+      return true;
+    }
+
+    try {
+      deleteRecursively(target);
+      cleanupEmptyParents(target.getParentFile(), serverBaseDir());
+      return true;
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Delete scope failed: " + target.getAbsolutePath() + " - " + e.getMessage(), e);
+    }
+  }
+
+  private void deleteRecursively(File target) throws IOException {
+    if (target.isDirectory()) {
+      File[] children = target.listFiles();
+      if (children != null) {
+        for (File child : children) {
+          deleteRecursively(child);
+        }
+      }
+    }
+    Files.deleteIfExists(target.toPath());
+  }
+
+  private void cleanupEmptyParents(File start, File stop) throws IOException {
+    if (start == null || stop == null) return;
+
+    String stopCanonical = stop.getCanonicalPath();
+    File current = start;
+    while (current != null && !current.getCanonicalPath().equals(stopCanonical)) {
+      File[] children = current.listFiles();
+      if (children != null && children.length > 0) {
+        break;
+      }
+      File parent = current.getParentFile();
+      Files.deleteIfExists(current.toPath());
+      current = parent;
+    }
+  }
+
   private String normalizeStoragePath(String storagePath) {
     if (storagePath == null || storagePath.isBlank()) {
       throw new SecurityException("storagePath is required");

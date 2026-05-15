@@ -8,4 +8,6 @@ public interface UserService {
   User signUp(String username, String email, String password);
 
   User update(User user);
+
+  User requireLocalSession(Integer id, String email);
 }

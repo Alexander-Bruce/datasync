@@ -212,6 +212,16 @@
               <h1>同步任务</h1>
               <p>管理本地文件夹、同步策略与共享空间。</p>
             </div>
+            <button class="secondary-btn" type="button" @click="openRestoreModal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4.5 21h15"
+                />
+              </svg>
+              <span>从远端同步</span>
+            </button>
             <button class="primary-btn" type="button" @click="openAdd">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -332,7 +342,7 @@
                   <button
                     class="icon-btn small"
                     type="button"
-                    :disabled="syncPaused || syncStatus[task.id] === 'up'"
+                    :disabled="syncPaused || Boolean(syncStatus[task.id])"
                     title="上行同步"
                     @click.stop="syncUpload(task)"
                   >
@@ -367,6 +377,47 @@
                         stroke-linecap="round"
                         stroke-linejoin="round"
                         d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    class="icon-btn small"
+                    type="button"
+                    :disabled="syncPaused || Boolean(syncStatus[task.id])"
+                    title="下行同步"
+                    @click.stop="syncDownload(task)"
+                  >
+                    <svg
+                      v-if="syncStatus[task.id] === 'down'"
+                      class="spin-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        opacity="0.25"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        opacity="0.75"
+                      />
+                    </svg>
+                    <svg
+                      v-else
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 7.5L12 12m0 0L7.5 7.5M12 12V3"
                       />
                     </svg>
                   </button>
@@ -1105,6 +1156,32 @@ const syncUpload = async (task) => {
   }
 }
 
+const syncDownload = async (task) => {
+  if (syncPaused.value || syncStatus[task.id]) return
+  syncStatus[task.id] = 'down'
+  try {
+    await HttpManager.post(
+      '/client/sync/download',
+      {
+        fileId: task.id,
+        email: currentUser.email,
+        path: task.path
+      },
+      { timeout: 0 }
+    )
+    syncSuccess[task.id] = true
+    task.isSync = true
+    task.updateTime = new Date().toISOString()
+    setTimeout(() => {
+      delete syncSuccess[task.id]
+    }, 2500)
+  } catch (err) {
+    console.error('下行同步失败', err)
+  } finally {
+    delete syncStatus[task.id]
+  }
+}
+
 const syncAllPending = async () => {
   for (const task of pendingTasks.value) {
     if (syncPaused.value) return
@@ -1597,6 +1674,7 @@ svg {
 
 .create-sync-btn,
 .primary-btn,
+.secondary-btn,
 .wide-btn,
 .btn-primary {
   display: inline-flex;
@@ -1622,6 +1700,7 @@ svg {
 
 .create-sync-btn svg,
 .primary-btn svg,
+.secondary-btn svg,
 .btn-primary svg {
   width: 18px;
   height: 18px;
@@ -1629,6 +1708,7 @@ svg {
 
 .create-sync-btn:hover,
 .primary-btn:hover,
+.secondary-btn:hover,
 .wide-btn:hover,
 .btn-primary:hover:not(:disabled) {
   background: #1765cc;
@@ -2034,6 +2114,10 @@ svg {
   gap: 16px;
 }
 
+.page-title-row {
+  flex-wrap: wrap;
+}
+
 .page-title-row h1,
 .task-panel-head h2,
 .section-line-head h2,
@@ -2059,6 +2143,19 @@ svg {
   height: 38px;
   padding: 0 14px;
   white-space: nowrap;
+}
+
+.secondary-btn {
+  height: 38px;
+  padding: 0 14px;
+  white-space: nowrap;
+  background: var(--blue-soft);
+  color: var(--blue);
+  border: 1px solid #d2e3fc;
+}
+
+.secondary-btn:hover {
+  background: #d2e3fc;
 }
 
 .metric-strip {

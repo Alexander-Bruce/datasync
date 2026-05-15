@@ -48,6 +48,17 @@ public class UserController {
     return ResultEntity.success(200, "User updated", userService.update(user));
   }
 
+  @PostMapping("/session")
+  public ResponseEntity<ResultEntity<Object>> session(@RequestBody Map<String, String> userInfo) {
+    String stringId = userInfo.get("id");
+    Integer id =
+        stringId == null || stringId.isBlank() || "null".equalsIgnoreCase(stringId)
+            ? null
+            : Integer.valueOf(stringId);
+    return ResultEntity.success(
+        200, "Local session verified", userService.requireLocalSession(id, userInfo.get("email")));
+  }
+
   @PostMapping("/search")
   public ResponseEntity<ResultEntity<Object>> searchUsers(@RequestBody Map<String, String> map) {
     Object data =

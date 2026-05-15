@@ -189,6 +189,11 @@ public class FileServiceImpl implements FileService {
       throw new BaseException("无法删除：该文件夹已共享至群组，请先删除相关群组后再删除此任务", 409);
     }
 
+    HttpJsonClient.postForData(
+        "server/file/delete-scope",
+        Map.of("scopeName", scopeName),
+        new TypeReference<Boolean>() {});
+
     subFileMapper.deleteByFileId(file.getId());
     fileMapper.deleteById(file.getId());
 
@@ -695,36 +700,6 @@ public class FileServiceImpl implements FileService {
       return user;
     }
 
-    Map<String, Object> remoteUser =
-        HttpJsonClient.postForData(
-            "server/user/resolve", Map.of("email", normalizedEmail), new TypeReference<>() {});
-
-    User restoredUser =
-        User.builder()
-            .id(parseUserId(remoteUser.get("id")))
-            .username(asString(remoteUser.get("username")))
-            .email(asString(remoteUser.get("email")))
-            .avatar(asString(remoteUser.get("avatar")))
-            .build();
-
-    if (restoredUser.getId() == null || restoredUser.getEmail() == null) {
-      throw new BaseException("无法恢复本地用户缓存，请重新登录。", 428);
-    }
-
-    userMapper.insert(restoredUser);
-    return restoredUser;
-  }
-
-  private Integer parseUserId(Object value) {
-    if (value == null) return null;
-    if (value instanceof Number number) return number.intValue();
-    String text = value.toString().trim();
-    return text.isEmpty() ? null : Integer.valueOf(text);
-  }
-
-  private String asString(Object value) {
-    if (value == null) return null;
-    String text = value.toString();
-    return text.isBlank() ? null : text;
+    throw new BaseException("Please login again.", 401);
   }
 }

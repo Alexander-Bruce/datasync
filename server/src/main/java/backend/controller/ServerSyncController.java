@@ -108,6 +108,15 @@ public class ServerSyncController {
     return ResultEntity.success(200, "File uploaded successfully", Map.of("bytes", bytes));
   }
 
+  @PostMapping("/delete-scope")
+  public ResponseEntity<ResultEntity<Object>> deleteScope(@RequestBody Map<String, String> map) {
+    String scopeName = map.get("scopeName");
+    if (scopeName == null || scopeName.isBlank())
+      throw new BaseException("scopeName is required", 400);
+
+    return ResultEntity.success(200, "Scope deleted", fileService.deleteScope(scopeName));
+  }
+
   /**
    * 列出某用户在 bucket 中已有的全部 scope，供"刚装客户端、本地没有 task"的场景从远端恢复任务列表。
    *

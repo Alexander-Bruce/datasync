@@ -32,6 +32,19 @@ const router = createRouter({
 let configState = null
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+function clearAuthState() {
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('userInfo')
+}
+
+function readStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem('userInfo') || 'null')
+  } catch {
+    return null
+  }
+}
+
 async function loadConfigState() {
   if (configState !== null) {
     return configState
@@ -69,11 +82,31 @@ router.beforeEach(async (to) => {
     }
   }
 
-  if ((to.path === '/' || to.path === '/register') && token) {
+  if (token) {
+    const user = readStoredUser()
+    if (!user?.email || !user?.id) {
+      clearAuthState()
+      if (to.meta.requiresAuth) return '/'
+    } else {
+      try {
+        await HttpManager.postNoAuth('/client/user/session', {
+          id: String(user.id),
+          email: user.email
+        })
+      } catch {
+        clearAuthState()
+        if (to.meta.requiresAuth || to.path === '/' || to.path === '/register') return '/'
+      }
+    }
+  }
+
+  const verifiedToken = localStorage.getItem('authToken')
+
+  if ((to.path === '/' || to.path === '/register') && verifiedToken) {
     return '/dashboard'
   }
 
-  if (to.meta.requiresAuth && !token) {
+  if (to.meta.requiresAuth && !verifiedToken) {
     return '/'
   }
 

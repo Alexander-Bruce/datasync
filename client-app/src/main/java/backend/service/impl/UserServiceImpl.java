@@ -92,4 +92,22 @@ public class UserServiceImpl implements UserService {
     userMapper.update(updatedUser);
     return updatedUser;
   }
+
+  @Override
+  public User requireLocalSession(Integer id, String email) {
+    if (email == null || email.trim().isEmpty()) {
+      throw new BaseException("Please login again.", 401);
+    }
+
+    User localUser = userMapper.selectByEmail(email.trim());
+    if (localUser == null || localUser.getId() == null) {
+      throw new BaseException("Please login again.", 401);
+    }
+
+    if (id != null && !id.equals(localUser.getId())) {
+      throw new BaseException("Please login again.", 401);
+    }
+
+    return localUser;
+  }
 }

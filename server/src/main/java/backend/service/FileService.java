@@ -36,5 +36,7 @@ public interface FileService {
    */
   byte[] downloadFile(String scopeName, String relativePath);
 
+  boolean deleteScope(String scopeName);
+
   long uploadFile(String storagePath, String fileName, InputStream inputStream);
 }

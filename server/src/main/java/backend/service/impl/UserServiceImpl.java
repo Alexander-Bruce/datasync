@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -30,6 +31,9 @@ public class UserServiceImpl implements UserService {
 
   @Value("${spring.netty.server.basePath}")
   private String basePath;
+
+  @Value("${application.server.public-base-url:${PUBLIC_BASE_URL:}}")
+  private String publicBaseUrl;
 
   @Override
   public Map<String, String> login(String email, String password) {
@@ -48,7 +52,7 @@ public class UserServiceImpl implements UserService {
       map.put("id", String.valueOf(user.getId()));
       map.put("username", user.getUsername());
       map.put("email", user.getEmail());
-      map.put("avatar", user.getAvatar());
+      map.put("avatar", publicAvatar(user.getAvatar()));
 
       return map;
     } catch (LoginFailedException ex) {
@@ -84,7 +88,7 @@ public class UserServiceImpl implements UserService {
       map.put("id", String.valueOf(u.getId()));
       map.put("username", u.getUsername());
       map.put("email", u.getEmail());
-      map.put("avatar", u.getAvatar());
+      map.put("avatar", publicAvatar(u.getAvatar()));
 
       return map;
     } catch (LoginFailedException ex) {
@@ -120,7 +124,7 @@ public class UserServiceImpl implements UserService {
     map.put("id", String.valueOf(updatedUser.getId()));
     map.put("username", updatedUser.getUsername());
     map.put("email", updatedUser.getEmail());
-    map.put("avatar", updatedUser.getAvatar());
+    map.put("avatar", publicAvatar(updatedUser.getAvatar()));
     return map;
   }
 
@@ -173,10 +177,33 @@ public class UserServiceImpl implements UserService {
     } catch (IOException ex) {
       throw new BaseException("Failed to save avatar image", 500);
     }
-    return "http://127.0.0.1:8090/resources/avatars/"
-        + avatarFile.getName()
-        + "?v="
-        + System.currentTimeMillis();
+    return buildPublicUrl("/resources/avatars/" + avatarFile.getName(), System.currentTimeMillis());
+  }
+
+  private String buildPublicUrl(String path, long version) {
+    String base = publicBaseUrl == null ? "" : publicBaseUrl.trim();
+    if (base.isEmpty()) {
+      try {
+        base = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+      } catch (IllegalStateException ex) {
+        base = "";
+      }
+    }
+    if (base.endsWith("/")) {
+      base = base.substring(0, base.length() - 1);
+    }
+    return base + path + "?v=" + version;
+  }
+
+  private String publicAvatar(String avatar) {
+    if (avatar == null || avatar.trim().isEmpty()) return avatar;
+    String trimmed = avatar.trim();
+    int resourceIndex = trimmed.indexOf("/resources/avatars/");
+    if (resourceIndex < 0) return trimmed;
+    String path = trimmed.substring(resourceIndex);
+    int queryIndex = path.indexOf('?');
+    if (queryIndex >= 0) path = path.substring(0, queryIndex);
+    return buildPublicUrl(path, System.currentTimeMillis());
   }
 
   @Override
@@ -188,7 +215,8 @@ public class UserServiceImpl implements UserService {
       Map<String, String> m = new HashMap<>();
       m.put("email", u.getEmail());
       m.put("username", u.getUsername() != null ? u.getUsername() : "");
-      m.put("avatar", u.getAvatar() != null ? u.getAvatar() : "");
+      String avatar = publicAvatar(u.getAvatar());
+      m.put("avatar", avatar != null ? avatar : "");
       result.add(m);
     }
     return result;
@@ -209,7 +237,8 @@ public class UserServiceImpl implements UserService {
     map.put("id", String.valueOf(user.getId()));
     map.put("username", user.getUsername() != null ? user.getUsername() : "");
     map.put("email", user.getEmail());
-    map.put("avatar", user.getAvatar() != null ? user.getAvatar() : "");
+    String avatar = publicAvatar(user.getAvatar());
+    map.put("avatar", avatar != null ? avatar : "");
     return map;
   }
 }
