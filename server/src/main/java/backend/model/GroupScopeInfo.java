@@ -12,5 +12,8 @@ import lombok.NoArgsConstructor;
 @Builder
 public class GroupScopeInfo {
   private String scopeName;
+  private String alias;
+  private String rootName;
+  private String displayName;
   private List<GroupFileNode> files;
 }

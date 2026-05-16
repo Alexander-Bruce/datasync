@@ -316,11 +316,16 @@ public class GroupServiceImpl implements GroupService {
               List<GroupScopeInfo> scopeInfos =
                   g.getScopes().stream()
                       .map(
-                          scopeName ->
-                              GroupScopeInfo.builder()
-                                  .scopeName(scopeName)
-                                  .files(listScopeFiles(scopeName))
-                                  .build())
+                          scopeName -> {
+                            ScopeParts parts = parseScopeParts(scopeName);
+                            return GroupScopeInfo.builder()
+                                .scopeName(scopeName)
+                                .alias(parts.alias())
+                                .rootName(parts.rootName())
+                                .displayName(parts.displayName())
+                                .files(listScopeFiles(scopeName))
+                                .build();
+                          })
                       .collect(Collectors.toList());
               return GroupInfo.builder()
                   .id(g.getId())
@@ -390,4 +395,17 @@ public class GroupServiceImpl implements GroupService {
     }
     return file.getName();
   }
+
+  private ScopeParts parseScopeParts(String scopeName) {
+    String normalized = scopeName == null ? "" : scopeName.trim().replace("\\", "/");
+    List<String> parts =
+        Arrays.stream(normalized.split("/")).filter(part -> !part.isBlank()).toList();
+    String alias = parts.size() >= 2 ? parts.get(1) : "";
+    String rootName =
+        parts.size() >= 3 ? parts.get(2) : (parts.isEmpty() ? "" : parts.get(parts.size() - 1));
+    String displayName = rootName.isBlank() ? alias : rootName;
+    return new ScopeParts(alias, rootName, displayName);
+  }
+
+  private record ScopeParts(String alias, String rootName, String displayName) {}
 }

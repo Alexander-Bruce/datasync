@@ -486,7 +486,7 @@
                         d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z"
                       />
                     </svg>
-                    <span>{{ scopeDisplayName(scope.scopeName) }}</span>
+                    <span>{{ scopeDisplayName(scope) }}</span>
                     <small>{{ (scope.files || []).length }}</small>
                   </button>
                 </div>
@@ -1031,7 +1031,13 @@ const filteredGroupFiles = computed(() => {
       )
       if (groupMatches) return group
       const scopes = (group.scopes || []).filter((scope) => {
-        if (matchesSearchQuery([scope.scopeName], query)) return true
+        if (
+          matchesSearchQuery(
+            [scope.displayName, scope.rootName, scope.alias, scope.scopeName],
+            query
+          )
+        )
+          return true
         return (scope.files || []).some((file) =>
           matchesSearchQuery([file.name, file.relativePath], query)
         )
@@ -1083,7 +1089,10 @@ const loadGroupFiles = async () => {
 const navigateToScope = (group, scope) => {
   router.push({
     path: `/group-explorer/${group.id}/${encodeURIComponent(scope.scopeName)}`,
-    query: { groupName: group.name }
+    query: {
+      groupName: group.name,
+      displayName: scopeDisplayName(scope)
+    }
   })
 }
 
@@ -1225,10 +1234,13 @@ const doDeleteTask = async () => {
   }
 }
 
-const scopeDisplayName = (scopeName) => {
-  if (!scopeName) return scopeName
-  const idx = scopeName.indexOf('/')
-  return idx >= 0 ? scopeName.slice(idx + 1) : scopeName
+const scopeDisplayName = (scope) => {
+  if (!scope) return scope
+  if (typeof scope === 'object') {
+    return scope.displayName || scope.rootName || scope.alias || scopeDisplayName(scope.scopeName)
+  }
+  const parts = String(scope).replace(/\\/g, '/').split('/').filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : scope
 }
 
 // ── 远端任务恢复 ──────────────────────────────────────────

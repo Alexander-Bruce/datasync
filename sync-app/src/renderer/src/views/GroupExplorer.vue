@@ -346,9 +346,13 @@ const route = useRoute()
 const groupId = computed(() => route.params.groupId)
 const scopeName = computed(() => route.params.scopeName)
 const scopeDisplayName = computed(() => {
-  const s = scopeName.value || ''
-  const idx = s.indexOf('/')
-  return idx >= 0 ? s.slice(idx + 1) : s
+  const displayName = route.query.displayName
+  if (displayName) return String(displayName)
+  const parts = String(scopeName.value || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : scopeName.value || ''
 })
 const groupName = computed(() => route.query.groupName || '')
 

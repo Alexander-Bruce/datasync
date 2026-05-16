@@ -796,8 +796,9 @@ const getScopeFolderName = (task) =>
 const getScopeKey = (task) => [currentUser.email, task.alias, getScopeFolderName(task)].join('/')
 
 const scopeDisplayName = (scope) => {
-  const idx = scope.indexOf('/')
-  return idx >= 0 ? scope.slice(idx + 1) : scope
+  if (!scope) return scope
+  const parts = String(scope).replace(/\\/g, '/').split('/').filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : scope
 }
 
 // ── scope dropdown helpers ────────────────────────────────
